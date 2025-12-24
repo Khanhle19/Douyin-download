@@ -1,0 +1,54 @@
+avatar: false
+cookies:
+  ? ''
+  : douyin.com
+  IsDouyinActive: 'true'
+  UIFID_TEMP: f670781d5233033367a4d99498efe9bd14a45e82156a15d1881178acac831acfa28994c405dedccc0a7cdbee803b2d88ec75282956176ee5824d453b2f16e0591a9146df53efa2be43e018239e347bc6
+  __ac_nonce: 0694b9f5900d91e19c867
+  __ac_signature: _02B4Z6wo00f01eDZm1gAAIDALskNSo1QEu3g-b.AABF.39
+  __security_mc_1_s_sdk_crypt_sdk: 464cd8a3-4a21-b1e6
+  architecture: amd64
+  bd_ticket_guard_client_data: eyJiZC10aWNrZXQtZ3VhcmQtdmVyc2lvbiI6MiwiYmQtdGlja2V0LWd1YXJkLWl0ZXJhdGlvbi12ZXJzaW9uIjoxLCJiZC10aWNrZXQtZ3VhcmQtcmVlLXB1YmxpYy1rZXkiOiJCTlVmZjFtRW5yZS9uNmRnMlptcEJ3V0RkYUIzclB0RFFtRDk3a0xYSjV6cTltRENBU2dCT3ZETzBHUm9ZWE4xVjhmdFN1RXoxUW9WY1hsTGlzZ3B2Tms9IiwiYmQtdGlja2V0LWd1YXJkLXdlYi12ZXJzaW9uIjoyfQ%3D%3D
+  bd_ticket_guard_client_data_v2: eyJyZWVfcHVibGljX2tleSI6IkJOVWZmMW1FbnJlL242ZGcyWm1wQndXRGRhQjNyUHREUW1EOTdrTFhKNXpxOW1EQ0FTZ0JPdkRPMEdSb1lYTjFWOGZ0U3VFejFRb1ZjWGxMaXNncHZOaz0iLCJyZXFfY29udGVudCI6InNlY190cyIsInJlcV9zaWduIjoiSE1QRDVQWGNiYjlON2p2WWJtTmVXMCt4MjFpSDZqeG5QV2N5Y3ZjQnhhWT0iLCJzZWNfdHMiOiIjWjEzUTE3UUNTUlZjK05aMjNRMkMzbm1FOElwVzUwY3gvTlNncmk0TWZsQUs4NHBiTGNmL1poeHZaWVdxIn0%3D
+  bd_ticket_guard_client_web_domain: '2'
+  bit_env: 6FdPMO62viLEkDIZFEjeDkoZ3eKTpO8MCd7Gk18yErNTP7YCZCGR-wEAt9F5DLdnZZkNXC9Z5WNqhQKiGhItzI3A9zcI_CDvCLQr7a3vvPrGTQUfo9ldq1uZnhWXIcygT8PlIwUS0b9pPrqytAQrribDB-4GSmisGPWnIZXmnVqPo390w4SxbwtPHkLXK1jNT1t9fHuu8QF5POG8r0hMc3bKb9hImrG2pEcnkTTF-x2379dY2W45gDy1syN7MNy6D9ewaGrtFCqaG_HQgVJWXR-CkTdiPApGcm318kg5tmARmCDv-eTaFgfc_3X42YaVzK9CcAzhkWcAnYsFsNz0YqGu6IFY2rLsjuGbUNvpt7KNFNtmir6oWHe3VpmU8j9A_uSTQusi24eCv3ZWoQr-g_n6GNTvV0_uVCca-P401k8gCx53TLfu1CRbLypJcIS0WQdV-WuRauOvK_LG5-_a-AiEHW-kNnxEe8HnYIHkYQ4R-rEn-a2UGdxde6ghrI_G
+  biz_trace_id: b0cf1e6b
+  d_ticket: 098091c6cad424ed5df618a9e994b8a3014d9
+  device_web_cpu_core: '12'
+  device_web_memory_size: '8'
+  dy_sheight: '720'
+  dy_swidth: '1280'
+  enter_pc_once: '1'
+  fpk1: U2FsdGVkX19PdtibU35qEppsIGZYVNtrbU+yH3unGEP6hbkIWmVDOqj7g8GKZ9ljkmmWpbgbblNkiGqDaZPOPQ==
+  fpk2: 9c1ce27f08b16479d2e17743062b28ed
+  gulu_source_res: eyJwX2luIjoiMDYxZGIwZWU3NGVlNDllYzhlMTYzNzQ5M2NlMTAwYTY4ZmU3YjMxMmViMzU4YzMyMDcxZmE3MzViZjc0NzViYSJ9
+  hevc_supported: 'true'
+  home_can_add_dy_2_desktop: '%220%22'
+  odin_tt: a1be91e8243e746448199cc06fd11ee369ec84af79a8869db0165cab6f379ecf1811748e4208fb48601b5dd7d707c2cbfe32e8efe095d1bac28fe92aa41892ab26ea686e9b75cd69fccdf953094ee54c
+  passport_auth_mix_state: lz111i94cudppwis4wxkwq1wcz2qcvsg3pzatbvldfzaua3e
+  passport_csrf_token: a894d331b078650f57b24f268971e646
+  passport_csrf_token_default: a894d331b078650f57b24f268971e646
+  passport_mfa_token: CjbZWimyE8mSJXaUlXHJyBrSW5X3HI9j7W0xzA9OY3tvZIhByaYmXVvO9D1CPeGVIds4ehAvrD0aSgo8AAAAAAAAAAAAAE%2Fea4VTwj7o7ZY8suyEdsHTJogDcZXM0sAN0mn9kG%2FCuBk1KB1%2BRzTAaTWnX5mCupleEMGEhQ4Y9rHRbCACIgEDRc3hOA%3D%3D
+  s_v_web_id: verify_mjjqefnd_mcjSvwY7_TuuT_4Lq2_B1hR_nAyETVhEtQhc
+  sdk_source_info: 7e276470716a68645a606960273f276364697660272927676c715a6d6069756077273f276364697660272927666d776a68605a607d71606b766c6a6b5a7666776c7571273f275e58272927666a6b766a69605a696c6061273f27636469766027292762696a6764695a7364776c6467696076273f275e582729277672715a646971273f2763646976602729277f6b5a666475273f2763646976602729276d6a6e5a6b6a716c273f2763646976602729276c6b6f5a7f6367273f27636469766027292771273f27303535373d3336333033333234272927676c715a75776a716a666a69273f2763646976602778
+  strategyABtestKey: '%221766563676.605%22'
+  stream_player_status_params: '%22%7B%5C%22is_auto_play%5C%22%3A0%2C%5C%22is_full_screen%5C%22%3A0%2C%5C%22is_full_webscreen%5C%22%3A0%2C%5C%22is_mute%5C%22%3A0%2C%5C%22is_speed%5C%22%3A1%2C%5C%22is_visible%5C%22%3A1%7D%22'
+  stream_recommend_feed_params: '%22%7B%5C%22cookie_enabled%5C%22%3Atrue%2C%5C%22screen_width%5C%22%3A1280%2C%5C%22screen_height%5C%22%3A720%2C%5C%22browser_online%5C%22%3Atrue%2C%5C%22cpu_core_num%5C%22%3A12%2C%5C%22device_memory%5C%22%3A8%2C%5C%22downlink%5C%22%3A1.35%2C%5C%22effective_type%5C%22%3A%5C%223g%5C%22%2C%5C%22round_trip_time%5C%22%3A350%7D%22'
+  ttwid: 1%7CCtZ30-_9lz30v2fvjLpcXQFz3exHtgMchIIW5DryA_Y%7C1766563680%7Cb6fbd73f7b63e00e01b18dd278ab3074c574dd6ed3662392d30d3739db563b0c
+  volume_info: '%7B%22isUserMute%22%3Afalse%2C%22isMute%22%3Afalse%2C%22volume%22%3A0.5%7D'
+  x-web-secsdk-uid: 5aa99a53-4a5f-4bca-83e9-f878e0e00cc2
+cover: true
+end_time: ''
+json: true
+link:
+- https://www.douyin.com/user/MS4wLjABAAAAis_JnxgBlvvYLcDZvsu8MjLRkVpsjunZo2XthCZs4OPTl1S7nATx535qCyz1Aq_A
+mode:
+- post
+music: true
+number:
+  like: 0
+  post: 2
+path: ./Downloaded/
+retry_times: 3
+start_time: ''
+thread: 5

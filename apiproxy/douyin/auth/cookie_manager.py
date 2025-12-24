@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Cookie自动管理器
-自动获取、刷新和管理抖音Cookies
+Auto Cookie Manager
+Automatically fetch, refresh, and manage Douyin Cookies
 """
 
 import asyncio
@@ -23,12 +23,12 @@ try:
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    logger.warning("Playwright未安装，自动Cookie管理不可用")
+    logger.warning("Playwright not installed, auto Cookie management unavailable")
 
 
 @dataclass
 class CookieInfo:
-    """Cookie信息"""
+    """Cookie info"""
     cookies: List[Dict[str, Any]]
     created_at: float = field(default_factory=time.time)
     last_used: float = field(default_factory=time.time)
@@ -36,12 +36,12 @@ class CookieInfo:
     is_valid: bool = True
     
     def is_expired(self, max_age_hours: int = 24) -> bool:
-        """检查Cookie是否过期"""
+        """Check if Cookie is expired"""
         age = time.time() - self.created_at
         return age > max_age_hours * 3600
     
     def to_dict(self) -> Dict:
-        """转换为字典格式"""
+        """Convert to dictionary format"""
         return {
             'cookies': self.cookies,
             'created_at': self.created_at,
@@ -52,12 +52,12 @@ class CookieInfo:
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'CookieInfo':
-        """从字典创建"""
+        """Create from dictionary"""
         return cls(**data)
 
 
 class AutoCookieManager:
-    """自动Cookie管理器"""
+    """Auto Cookie Manager"""
     
     def __init__(
         self,
@@ -67,13 +67,13 @@ class AutoCookieManager:
         headless: bool = False
     ):
         """
-        初始化Cookie管理器
+        Initialize Cookie manager
         
         Args:
-            cookie_file: Cookie保存文件
-            auto_refresh: 是否自动刷新
-            refresh_interval: 刷新间隔（秒）
-            headless: 浏览器是否无头模式
+            cookie_file: Cookie save file
+            auto_refresh: Whether to auto-refresh
+            refresh_interval: Refresh interval (seconds)
+            headless: Whether browser is in headless mode
         """
         self.cookie_file = Path(cookie_file)
         self.auto_refresh = auto_refresh
@@ -88,40 +88,40 @@ class AutoCookieManager:
         self._refresh_task = None
         self._lock = asyncio.Lock()
         
-        # 加载已保存的Cookies
+        # Load saved Cookies
         self._load_cookies()
     
     def _load_cookies(self):
-        """从文件加载Cookies"""
+        """Load Cookies from file"""
         if self.cookie_file.exists():
             try:
                 with open(self.cookie_file, 'rb') as f:
                     data = pickle.load(f)
                     self.current_cookies = CookieInfo.from_dict(data)
-                    logger.info(f"已加载保存的Cookies (创建时间: {datetime.fromtimestamp(self.current_cookies.created_at)})")
+                    logger.info(f"Loaded saved Cookies (Created at: {datetime.fromtimestamp(self.current_cookies.created_at)})")
             except Exception as e:
-                logger.error(f"加载Cookies失败: {e}")
+                logger.error(f"Failed to load Cookies: {e}")
                 self.current_cookies = None
     
     def _save_cookies(self):
-        """保存Cookies到文件"""
+        """Save Cookies to file"""
         if self.current_cookies:
             try:
                 with open(self.cookie_file, 'wb') as f:
                     pickle.dump(self.current_cookies.to_dict(), f)
-                logger.info("Cookies已保存")
+                logger.info("Cookies saved")
             except Exception as e:
-                logger.error(f"保存Cookies失败: {e}")
+                logger.error(f"Failed to save Cookies: {e}")
     
     async def get_cookies(self) -> Optional[List[Dict[str, Any]]]:
         """
-        获取有效的Cookies
+        Get valid Cookies
         
         Returns:
-            Cookie列表
+            List of Cookies
         """
         async with self._lock:
-            # 检查是否需要刷新
+            # Check if refresh is needed
             if self._need_refresh():
                 await self._refresh_cookies()
             
@@ -132,58 +132,58 @@ class AutoCookieManager:
             return None
     
     def _need_refresh(self) -> bool:
-        """判断是否需要刷新Cookies"""
+        """Determine if Cookies need refresh"""
         if not self.current_cookies:
             return True
         
-        # 检查是否过期
+        # Check if expired
         if self.current_cookies.is_expired(max_age_hours=24):
-            logger.info("Cookies已过期，需要刷新")
+            logger.info("Cookies expired, need refresh")
             return True
         
-        # 检查是否长时间未使用
+        # Check if idle for too long
         idle_time = time.time() - self.current_cookies.last_used
         if idle_time > self.refresh_interval:
-            logger.info(f"Cookies已闲置 {idle_time/3600:.1f} 小时，需要刷新")
+            logger.info(f"Cookies idle for {idle_time/3600:.1f} hours, need refresh")
             return True
         
         return False
     
     async def _refresh_cookies(self):
-        """登录并获取新的Cookies"""
-        logger.info("需要重新登录获取Cookies")
+        """Login and get new Cookies"""
+        logger.info("Need to re-login to get Cookies")
         
         try:
             browser = await self._get_browser()
             page = await browser.new_page()
             
-            # 访问抖音，放宽等待条件
+            # Visit Douyin, relax wait conditions
             try:
                 await page.goto("https://www.douyin.com", wait_until='domcontentloaded', timeout=120000)
-                # 额外等待页面稳定，给验证码页面加载留出时间
+                # Extra wait for page stability, allow time for captcha page to load
                 await asyncio.sleep(10)
             except Exception as e:
-                logger.warning(f"页面加载超时，继续尝试: {e}")
-                # 即使超时也继续尝试
+                logger.warning(f"Page load timeout, continuing: {e}")
+                # Continue even if timeout
             
-            # 检查是否需要登录
+            # Check login status
             is_logged_in = await self._check_login_status(page)
             
             if not is_logged_in:
-                # 执行登录流程
+                # Perform login flow
                 login_method = await self._perform_login(page)
                 
                 if not login_method:
-                    logger.error("登录失败")
+                    logger.error("Login failed")
                     await page.close()
                     return
             else:
                 login_method = "already_logged_in"
             
-            # 获取Cookies
+            # Get Cookies
             cookies = await page.context.cookies()
             
-            # 过滤必要的Cookies
+            # Filter necessary Cookies
             filtered_cookies = self._filter_cookies(cookies)
             
             self.current_cookies = CookieInfo(
@@ -192,37 +192,37 @@ class AutoCookieManager:
             )
             
             self._save_cookies()
-            logger.info(f"成功获取Cookies (登录方式: {login_method})")
+            logger.info(f"Successfully fetched Cookies (Login method: {login_method})")
             
             await page.close()
             
         except Exception as e:
-            logger.error(f"登录获取Cookies失败: {e}")
-    
+            logger.error(f"Failed to login and fetch Cookies: {e}")
+
     async def _try_refresh_existing(self) -> bool:
-        """尝试刷新现有Cookies"""
+        """Try to refresh existing Cookies"""
         try:
             browser = await self._get_browser()
             page = await browser.new_page()
             
-            # 设置现有Cookies
+            # Set existing Cookies
             await page.context.add_cookies(self.current_cookies.cookies)
             
-            # 访问抖音主页
+            # Visit Douyin homepage
             await page.goto("https://www.douyin.com", wait_until='networkidle')
             
-            # 检查是否仍然登录
+            # Check if still logged in
             is_logged_in = await self._check_login_status(page)
             
             if is_logged_in:
-                # 获取更新后的Cookies
+                # Get updated Cookies
                 cookies = await page.context.cookies()
                 self.current_cookies = CookieInfo(
                     cookies=cookies,
                     login_method="refresh"
                 )
                 self._save_cookies()
-                logger.info("Cookies刷新成功")
+                logger.info("Cookies refreshed successfully")
                 await page.close()
                 return True
             
@@ -230,38 +230,38 @@ class AutoCookieManager:
             return False
             
         except Exception as e:
-            logger.error(f"刷新Cookies失败: {e}")
+            logger.error(f"Failed to refresh Cookies: {e}")
             return False
     
     async def _login_and_get_cookies(self):
-        """登录并获取新的Cookies"""
-        logger.info("需要重新登录获取Cookies")
+        """Login and get new Cookies"""
+        logger.info("Need to re-login to get Cookies")
         
         try:
             browser = await self._get_browser()
             page = await browser.new_page()
             
-            # 访问抖音
+            # Visit Douyin
             await page.goto("https://www.douyin.com", wait_until='networkidle')
             
-            # 检查是否需要登录
+            # Check login status
             is_logged_in = await self._check_login_status(page)
             
             if not is_logged_in:
-                # 执行登录流程
+                # Perform login flow
                 login_method = await self._perform_login(page)
                 
                 if not login_method:
-                    logger.error("登录失败")
+                    logger.error("Login failed")
                     await page.close()
                     return
             else:
                 login_method = "already_logged_in"
             
-            # 获取Cookies
+            # Get Cookies
             cookies = await page.context.cookies()
             
-            # 过滤必要的Cookies
+            # Filter necessary Cookies
             filtered_cookies = self._filter_cookies(cookies)
             
             self.current_cookies = CookieInfo(
@@ -270,17 +270,17 @@ class AutoCookieManager:
             )
             
             self._save_cookies()
-            logger.info(f"成功获取Cookies (登录方式: {login_method})")
+            logger.info(f"Successfully fetched Cookies (Login method: {login_method})")
             
             await page.close()
             
         except Exception as e:
-            logger.error(f"登录获取Cookies失败: {e}")
+            logger.error(f"Failed to login and fetch Cookies: {e}")
     
     async def _check_login_status(self, page: 'Page') -> bool:
-        """检查登录状态"""
+        """Check login status"""
         try:
-            # 查找用户头像或其他登录标识
+            # Look for user avatar or other login indicators
             selectors = [
                 '[data-e2e="user-avatar"]',
                 '.user-avatar',
@@ -298,12 +298,12 @@ class AutoCookieManager:
                 try:
                     element = await page.wait_for_selector(selector, timeout=5000)
                     if element:
-                        logger.info("检测到已登录")
+                        logger.info("Detected logged in")
                         return True
                 except:
                     continue
             
-            # 额外检查：查找登录按钮，如果找不到说明可能已登录
+            # Extra check: look for login button, if not found might be logged in
             try:
                 login_indicators = [
                     '[data-e2e="login-button"]',
@@ -316,13 +316,13 @@ class AutoCookieManager:
                     try:
                         element = await page.wait_for_selector(indicator, timeout=2000)
                         if element:
-                            logger.info("检测到登录按钮，未登录")
+                            logger.info("Detected login button, not logged in")
                             return False
                     except:
                         continue
                 
-                # 如果找不到登录按钮，可能已登录
-                logger.info("未找到登录按钮，可能已登录")
+                # If login button not found, might be logged in
+                logger.info("Login button not found, might be logged in")
                 return True
                 
             except Exception:
@@ -331,28 +331,28 @@ class AutoCookieManager:
             return False
             
         except Exception as e:
-            logger.warning(f"检查登录状态失败: {e}")
+            logger.warning(f"Failed to check login status: {e}")
             return False
     
     async def _perform_login(self, page: 'Page') -> Optional[str]:
-        """执行登录流程"""
-        logger.info("开始登录流程...")
+        """Perform login flow"""
+        logger.info("Starting login flow...")
         
-        # 首先尝试二维码登录
+        # Try QR code login first
         login_method = await self._qrcode_login(page)
         
         if not login_method:
-            # 如果二维码登录失败，尝试其他方式
+            # If QR code login fails, try manual
             login_method = await self._manual_login(page)
         
         return login_method
     
     async def _qrcode_login(self, page: Page) -> Optional[str]:
-        """二维码登录"""
+        """QR code login"""
         try:
-            logger.info("尝试二维码登录...")
+            logger.info("Attempting QR code login...")
             
-            # 查找并点击登录按钮
+            # Find and click login button
             login_button_selectors = [
                 '[data-e2e="login-button"]',
                 '.login-button',
@@ -372,10 +372,10 @@ class AutoCookieManager:
                 except:
                     continue
             
-            # 等待登录弹窗
+            # Wait for login popup
             await asyncio.sleep(8)
             
-            # 选择二维码登录
+            # Select QR code login
             qr_selectors = [
                 '[data-e2e="qrcode-tab"]',
                 '.qrcode-login',
@@ -395,7 +395,7 @@ class AutoCookieManager:
                 except:
                     continue
             
-            # 等待二维码出现
+            # Wait for QR code to appear
             qr_img_selectors = [
                 '.qrcode-img', 
                 '[class*="qrcode"] img', 
@@ -415,59 +415,59 @@ class AutoCookieManager:
                     continue
             
             if not qr_found:
-                logger.warning("未找到二维码，尝试继续等待...")
-                # 即使没找到二维码也继续等待，可能页面还在加载
+                logger.warning("QR code not found, continuing to wait...")
+                # Continue waiting even if not found, page might still be loading
             
             if not self.headless:
                 print("\n" + "="*60)
-                print("请使用抖音APP扫描二维码登录")
-                print("如果出现验证码，请完成验证码验证")
-                print("等待登录中...")
+                print("Please use Douyin APP to scan QR code to login")
+                print("If a captcha appears, please complete the verification")
+                print("Waiting for login...")
                 print("="*60 + "\n")
             
-            # 等待用户扫码（最多等待300秒，给验证码验证留出时间）
+            # Wait for user to scan (max 300s, allow time for captcha)
             start_time = time.time()
             while time.time() - start_time < 300:
                 is_logged_in = await self._check_login_status(page)
                 if is_logged_in:
-                    logger.info("二维码登录成功")
+                    logger.info("QR code login successful")
                     return "qrcode"
                 await asyncio.sleep(8)
             
-            logger.warning("二维码登录超时")
+            logger.warning("QR code login timeout")
             return None
             
         except Exception as e:
-            logger.error(f"二维码登录失败: {e}")
+            logger.error(f"QR code login failed: {e}")
             return None
     
     async def _manual_login(self, page: Page) -> Optional[str]:
-        """手动登录（等待用户操作）"""
+        """Manual login (wait for user action)"""
         if self.headless:
-            logger.error("无头模式下无法进行手动登录")
+            logger.error("Manual login unavailable in headless mode")
             return None
         
         print("\n" + "="*60)
-        print("请在浏览器中手动完成登录")
-        print("如果出现验证码，请完成验证码验证")
-        print("登录成功后将自动继续...")
+        print("Please complete login manually in the browser")
+        print("If a captcha appears, please complete the verification")
+        print("Will automatically continue after successful login...")
         print("="*60 + "\n")
         
-        # 等待用户手动登录（最多等待600秒，给验证码验证留出充足时间）
+        # Wait for manual login (max 600s, allow ample time for captcha)
         start_time = time.time()
         while time.time() - start_time < 600:
             is_logged_in = await self._check_login_status(page)
             if is_logged_in:
-                logger.info("手动登录成功")
+                logger.info("Manual login successful")
                 return "manual"
             await asyncio.sleep(8)
         
-        logger.warning("手动登录超时")
+        logger.warning("Manual login timeout")
         return None
     
     def _filter_cookies(self, cookies: List[Dict]) -> List[Dict]:
-        """过滤必要的Cookies"""
-        # 必要的Cookie名称
+        """Filter necessary Cookies"""
+        # Necessary Cookie names
         required_names = [
             'msToken',
             'ttwid', 
@@ -481,18 +481,18 @@ class AutoCookieManager:
         
         filtered = []
         for cookie in cookies:
-            # 保留必要的Cookie或抖音域名下的所有Cookie
+            # Keep necessary Cookies or all Cookies under Douyin domain
             if cookie['name'] in required_names or '.douyin.com' in cookie.get('domain', ''):
                 filtered.append(cookie)
         
-        logger.info(f"过滤后保留 {len(filtered)} 个Cookies")
+        logger.info(f"Kept {len(filtered)} Cookies after filtering")
         return filtered
     
     async def _get_browser(self) -> Browser:
-        """获取浏览器实例"""
+        """Get browser instance"""
         if not self.browser:
             if not PLAYWRIGHT_AVAILABLE:
-                raise ImportError("Playwright未安装")
+                raise ImportError("Playwright not installed")
             
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(
@@ -513,13 +513,13 @@ class AutoCookieManager:
         return self.context
     
     async def start_auto_refresh(self):
-        """启动自动刷新任务"""
+        """Start auto-refresh task"""
         if self.auto_refresh and not self._refresh_task:
             self._refresh_task = asyncio.create_task(self._auto_refresh_loop())
-            logger.info("自动Cookie刷新已启动")
+            logger.info("Auto Cookie refresh started")
     
     async def stop_auto_refresh(self):
-        """停止自动刷新任务"""
+        """Stop auto-refresh task"""
         if self._refresh_task:
             self._refresh_task.cancel()
             try:
@@ -527,26 +527,26 @@ class AutoCookieManager:
             except asyncio.CancelledError:
                 pass
             self._refresh_task = None
-            logger.info("自动Cookie刷新已停止")
+            logger.info("Auto Cookie refresh stopped")
     
     async def _auto_refresh_loop(self):
-        """自动刷新循环"""
+        """Auto-refresh loop"""
         while True:
             try:
                 await asyncio.sleep(self.refresh_interval)
                 
                 if self._need_refresh():
-                    logger.info("触发自动Cookie刷新")
+                    logger.info("Triggering auto Cookie refresh")
                     await self._refresh_cookies()
                     
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"自动刷新异常: {e}")
-                await asyncio.sleep(60)  # 出错后等待1分钟再试
+                logger.error(f"Auto-refresh exception: {e}")
+                await asyncio.sleep(60)  # Wait 1 minute after error before retrying
     
     async def cleanup(self):
-        """清理资源"""
+        """Cleanup resources"""
         await self.stop_auto_refresh()
         
         if self.context:
@@ -561,10 +561,10 @@ class AutoCookieManager:
             await self.playwright.stop()
             self.playwright = None
         
-        logger.info("Cookie管理器资源已清理")
+        logger.info("Cookie manager resources cleaned up")
     
     def get_cookie_dict(self) -> Optional[Dict[str, str]]:
-        """获取Cookie字典格式"""
+        """Get Cookie dictionary format"""
         if not self.current_cookies:
             return None
         
@@ -575,7 +575,7 @@ class AutoCookieManager:
         return cookie_dict
     
     def get_cookie_string(self) -> Optional[str]:
-        """获取Cookie字符串格式"""
+        """Get Cookie string format"""
         cookie_dict = self.get_cookie_dict()
         if not cookie_dict:
             return None
@@ -583,10 +583,10 @@ class AutoCookieManager:
         return '; '.join([f'{k}={v}' for k, v in cookie_dict.items()])
     
     async def __aenter__(self):
-        """异步上下文管理器入口"""
+        """Async context manager entry"""
         await self.start_auto_refresh()
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """异步上下文管理器出口"""
+        """Async context manager exit"""
         await self.cleanup()

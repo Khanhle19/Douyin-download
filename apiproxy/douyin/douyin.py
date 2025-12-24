@@ -55,7 +55,7 @@ class Douyin(object):
         try:
             r = requests.get(url=url, headers=douyin_headers)
         except Exception as e:
-            print('[  错误  ]:输入链接有误！\r')
+            print('[  ERROR  ]: Invalid input link!\r')
             return key_type, key
 
         # Douyin renamed albums to note
@@ -109,12 +109,12 @@ class Douyin(object):
             key_type = "live"
 
         if key is None or key_type is None:
-            print('[  错误  ]:输入链接有误！无法获取 id\r')
+            print('[  ERROR  ]: Invalid input link! Unable to get id\r')
             return key_type, key
 
         return key_type, key
 
-    # 暂时注释掉装饰器
+    # Temporarily comment out the decorator
     # @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def getAwemeInfo(self, aweme_id: str) -> dict:
         """Fetch aweme info with retry.
@@ -127,29 +127,29 @@ class Douyin(object):
         retries = 3
         for attempt in range(retries):
             try:
-                logger.info(f'[  提示  ]:正在请求的作品 id = {aweme_id}')
+                logger.info(f'[  INFO  ]: Requesting work id = {aweme_id}')
                 if aweme_id is None:
                     return {}
 
-                # 方法1: 尝试原有的单个视频接口
+                # Method 1: Try the original single video interface
                 result = self._try_detail_api(aweme_id)
                 if result:
                     return result
 
-                # 方法2: 如果单个视频接口失败，尝试备用方案
-                logger.warning("单个视频接口失败，尝试备用方案...")
+                # Method 2: If the single video interface fails, try the alternative solution
+                logger.warning("Single video interface failed, trying alternative solution...")
                 result = self._try_alternative_method(aweme_id)
                 if result:
                     return result
 
-                logger.warning(f"所有方法都失败了，尝试 {attempt+1}/{retries}")
+                logger.warning(f"All methods failed, attempt {attempt+1}/{retries}")
                 time.sleep(2 ** attempt)
 
             except Exception as e:
-                logger.warning(f"请求失败（尝试 {attempt+1}/{retries}）: {str(e)}")
+                logger.warning(f"Request failed (attempt {attempt+1}/{retries}): {str(e)}")
                 time.sleep(2 ** attempt)
 
-        logger.error(f"无法获取视频 {aweme_id} 的信息")
+        logger.error(f"Unable to get information for video {aweme_id}")
         return {}
 
     def _try_detail_api(self, aweme_id: str) -> dict:
@@ -158,37 +158,37 @@ class Douyin(object):
             start = time.time()
             while True:
                 try:
-                    # 单作品接口返回 'aweme_detail'
-                    # 主页作品接口返回 'aweme_list'->['aweme_detail']
-                    # 更新API参数以适应最新接口要求
+                    # Single work interface returns 'aweme_detail'
+                    # Homepage work interface returns 'aweme_list'->['aweme_detail']
+                    # Update API parameters to adapt to the latest interface requirements
                     detail_params = f'aweme_id={aweme_id}&device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&version_code=170400&version_name=17.4.0&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=122.0.0.0&browser_online=true&engine_name=Blink&engine_version=122.0.0.0&os_name=Mac&os_version=10.15.7&cpu_core_num=8&device_memory=8&platform=PC&downlink=10&effective_type=4g&round_trip_time=50&update_version_code=170400'
                     jx_url = self.urls.POST_DETAIL + utils.getXbogus(detail_params)
 
                     response = requests.get(url=jx_url, headers=douyin_headers, timeout=10)
 
-                    # 检查响应是否为空
+                    # Check if response is empty
                     if len(response.text) == 0:
-                        logger.warning("单个视频接口返回空响应")
+                        logger.warning("Single video interface returned empty response")
                         return {}
 
                     datadict = json.loads(response.text)
 
-                    # 添加调试信息
-                    logger.info(f"单个视频API响应状态: {datadict.get('status_code') if datadict else 'None'}")
+                    # Add debug information
+                    logger.info(f"Single video API response status: {datadict.get('status_code') if datadict else 'None'}")
                     if datadict and datadict.get("status_code") != 0:
-                        logger.warning(f"单个视频API错误: {datadict.get('status_msg', '未知错误')}")
+                        logger.warning(f"Single video API error: {datadict.get('status_msg', 'Unknown error')}")
                         return {}
 
                     if datadict is not None and datadict.get("status_code") == 0:
-                        # 检查是否有aweme_detail字段
+                        # Check if aweme_detail field exists
                         if "aweme_detail" not in datadict:
-                            logger.error(f"响应中缺少aweme_detail字段，可用字段: {list(datadict.keys())}")
+                            logger.error(f"Response missing aweme_detail field, available fields: {list(datadict.keys())}")
                             return {}
                         break
                 except Exception as e:
                     end = time.time()
                     if end - start > self.timeout:
-                        logger.warning(f"重复请求该接口{self.timeout}s, 仍然未获取到数据")
+                        logger.warning(f"Repeatedly requested this interface for {self.timeout}s, still no data obtained")
                         return {}
 
             # Clear self.awemeDict
@@ -201,7 +201,7 @@ class Douyin(object):
                 if datadict['aweme_detail']["images"] is not None:
                     awemeType = 1
             except Exception as e:
-                logger.warning("接口中未找到 images")
+                logger.warning("Images not found in interface")
 
             # Convert to internal format
             self.result.dataConvert(awemeType, self.result.awemeDict, datadict['aweme_detail'])
@@ -209,7 +209,7 @@ class Douyin(object):
             return self.result.awemeDict
 
         except Exception as e:
-            logger.warning(f"单个视频接口异常: {str(e)}")
+            logger.warning(f"Single video interface exception: {str(e)}")
             return {}
 
     def _try_alternative_method(self, aweme_id: str) -> dict:
@@ -220,17 +220,17 @@ class Douyin(object):
         2) User profile interface to find the video.
         3) Other scraping/parsing methods.
         """
-        logger.info("尝试备用方案获取视频信息...")
+        logger.info("Attempting alternative solution to get video information...")
         try:
-            # 1) 直接请求网页详情页并解析内嵌 JSON
+            # 1) Directly request the web detail page and parse embedded JSON
             video_url = f"https://www.douyin.com/video/{aweme_id}"
             print(f'[  URL  ]: = {video_url}\r\n')
             headers = copy.deepcopy(douyin_headers)
-            # 确保有一个常见的浏览器 UA
+            # Ensure there is a common browser UA
             headers.setdefault("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             resp = requests.get(video_url, headers=headers, timeout=10)
             if resp.status_code != 200 or not resp.text:
-                logger.warning(f"备用方案请求失败，状态码: {resp.status_code}")
+                logger.warning(f"Alternative solution request failed, status code: {resp.status_code}")
                 return {}
 
             html = resp.text
@@ -253,7 +253,7 @@ class Douyin(object):
                 try:
                     data = json.loads(raw_json)
                 except Exception as e:
-                    logger.warning(f"解析 RENDER_DATA 失败: {e}")
+                    logger.warning(f"Failed to parse RENDER_DATA: {e}")
                     return {}
 
             # Recursively search for a node containing aweme_id
@@ -278,13 +278,13 @@ class Douyin(object):
 
             aweme_obj = find_aweme(data)
             if aweme_obj:
-                logger.info("已通过页面解析到视频数据 (备用方案)")
+                logger.info("Video data parsed via page (alternative solution)")
                 return aweme_obj
             else:
-                logger.warning("页面中未解析到包含 aweme_id 的结构")
+                logger.warning("No structure containing aweme_id parsed in page")
                 return {}
         except Exception as e:
-            logger.error(f"备用方案解析异常: {e}")
+            logger.error(f"Alternative solution parsing exception: {e}")
             return {}
 
     # 传入 url 支持 https://www.iesdouyin.com 与 https://v.douyin.com
@@ -399,75 +399,75 @@ class Douyin(object):
                         description=f"[cyan]📥 已获取: {total_fetched}个作品"
                     )
 
-                    # 在处理作品时添加时间过滤
+                    # Add time filtering when processing works
                     for aweme in datadict["aweme_list"]:
                         create_time = time.strftime(
                             "%Y-%m-%d", 
                             time.localtime(int(aweme.get("create_time", 0)))
                         )
                         
-                        # 时间过滤
+                        # Time filtering
                         if not (start_time <= create_time <= end_time):
                             filtered_count += 1
                             continue
 
-                        # 数量限制检查
+                        # Limit download count check
                         if number > 0 and len(awemeList) >= number:
-                            self.console.print(f"[green]✅ 已达到限制数量: {number}[/]")
+                            self.console.print(f"[green]✅ Limit count reached: {number}[/]")
                             return awemeList
                             
-                        # 增量更新检查
+                        # Incremental update check
                         if self.database:
                             if mode == "post":
                                 if self.db.get_user_post(sec_uid=sec_uid, aweme_id=aweme['aweme_id']):
                                     if increase and aweme['is_top'] == 0:
-                                        self.console.print("[green]✅ 增量更新完成[/]")
+                                        self.console.print("[green]✅ Incremental update complete[/]")
                                         return awemeList
                                 else:
                                     self.db.insert_user_post(sec_uid=sec_uid, aweme_id=aweme['aweme_id'], data=aweme)
                             elif mode == "like":
                                 if self.db.get_user_like(sec_uid=sec_uid, aweme_id=aweme['aweme_id']):
                                     if increase and aweme['is_top'] == 0:
-                                        self.console.print("[green]✅ 增量更新完成[/]")
+                                        self.console.print("[green]✅ Incremental update complete[/]")
                                         return awemeList
                             else:
-                                self.console.print("[red]❌ 模式选择错误，仅支持post、like[/]")
+                                self.console.print("[red]❌ Mode selection error, only post and like are supported[/]")
                                 return None
 
-                        # 转换数据格式
+                        # Convert data format
                         aweme_data = self._convert_aweme_data(aweme)
                         if aweme_data:
                             awemeList.append(aweme_data)
 
-                    # 检查是否还有更多数据
+                    # Check if there is more data
                     if not datadict["has_more"]:
-                        self.console.print(f"[green]✅ 已获取全部作品: {total_fetched}个[/]")
+                        self.console.print(f"[green]✅ Fetched all works: {total_fetched}[/]")
                         break
                     
-                    # 更新游标
+                    # Update cursor
                     max_cursor = datadict["max_cursor"]
                     
                 except Exception as e:
-                    self.console.print(f"[red]❌ 获取作品列表出错: {str(e)}[/]")
+                    self.console.print(f"[red]❌ Error fetching work list: {str(e)}[/]")
                     break
 
         return awemeList
 
     def _convert_aweme_data(self, aweme):
-        """转换作品数据格式"""
+        """Convert work data format"""
         try:
             self.result.clearDict(self.result.awemeDict)
             aweme_type = 1 if aweme.get("images") else 0
             self.result.dataConvert(aweme_type, self.result.awemeDict, aweme)
             return copy.deepcopy(self.result.awemeDict)
         except Exception as e:
-            logger.error(f"数据转换错误: {str(e)}")
+            logger.error(f"Data conversion error: {str(e)}")
             return None
 
     def getLiveInfo(self, web_rid: str):
-        print('[  提示  ]:正在请求的直播间 id = %s\r\n' % web_rid)
+        print('[  INFO  ]: Requesting live room id = %s\r\n' % web_rid)
 
-        start = time.time()  # 开始时间
+        start = time.time()  # Start time
         while True:
             # API is unstable; sometimes we need to retry fetching data
             try:
@@ -479,83 +479,83 @@ class Douyin(object):
                 if live_json != {} and live_json['status_code'] == 0:
                     break
             except Exception as e:
-                end = time.time()  # 结束时间
+                end = time.time()  # End time
                 if end - start > self.timeout:
-                    print("[  提示  ]:重复请求该接口" + str(self.timeout) + "s, 仍然未获取到数据")
+                    print("[  INFO  ]: Repeatedly requested this interface for " + str(self.timeout) + "s, still no data obtained")
                     return {}
 
-        # 清空字典
+        # Clear dictionary
         self.result.clearDict(self.result.liveDict)
 
-        # 类型
+        # Type
         self.result.liveDict["awemeType"] = 2
-        # 是否在播
+        # Status (on air or not)
         self.result.liveDict["status"] = live_json['data']['data'][0]['status']
 
         if self.result.liveDict["status"] == 4:
-            print('[   📺   ]:当前直播已结束，正在退出')
+            print('[   📺   ]: Current live stream has ended, exiting')
             return self.result.liveDict
 
-        # 直播标题
+        # Live title
         self.result.liveDict["title"] = live_json['data']['data'][0]['title']
 
-        # 直播cover
+        # Live cover
         self.result.liveDict["cover"] = live_json['data']['data'][0]['cover']['url_list'][0]
 
-        # 头像
+        # Avatar
         self.result.liveDict["avatar"] = live_json['data']['data'][0]['owner']['avatar_thumb']['url_list'][0].replace(
             "100x100", "1080x1080")
 
-        # 观看人数
+        # Viewer count
         self.result.liveDict["user_count"] = live_json['data']['data'][0]['user_count_str']
 
-        # 昵称
+        # Nickname
         self.result.liveDict["nickname"] = live_json['data']['data'][0]['owner']['nickname']
 
         # sec_uid
         self.result.liveDict["sec_uid"] = live_json['data']['data'][0]['owner']['sec_uid']
 
-        # 直播间观看状态
+        # Live room viewing status
         self.result.liveDict["display_long"] = live_json['data']['data'][0]['room_view_stats']['display_long']
 
-        # 推流
+        # Stream URL
         self.result.liveDict["flv_pull_url"] = live_json['data']['data'][0]['stream_url']['flv_pull_url']
 
         try:
-            # 分区
+            # Partition
             self.result.liveDict["partition"] = live_json['data']['partition_road_map']['partition']['title']
             self.result.liveDict["sub_partition"] = \
                 live_json['data']['partition_road_map']['sub_partition']['partition']['title']
         except Exception as e:
-            self.result.liveDict["partition"] = '无'
-            self.result.liveDict["sub_partition"] = '无'
+            self.result.liveDict["partition"] = 'None'
+            self.result.liveDict["sub_partition"] = 'None'
 
-        info = '[   💻   ]:直播间：%s  当前%s  主播：%s 分区：%s-%s\r' % (
+        info = '[   💻   ]: Live Room: %s  Current %s  Host: %s  Partition: %s-%s\r' % (
             self.result.liveDict["title"], self.result.liveDict["display_long"], self.result.liveDict["nickname"],
             self.result.liveDict["partition"], self.result.liveDict["sub_partition"])
         print(info)
 
         flv = []
-        print('[   🎦   ]:直播间清晰度')
+        print('[   🎦   ]: Live room resolution')
         for i, f in enumerate(self.result.liveDict["flv_pull_url"].keys()):
             print('[   %s   ]: %s' % (i, f))
             flv.append(f)
 
-        rate = int(input('[   🎬   ]输入数字选择推流清晰度：'))
+        rate = int(input('[   🎬   ] Enter number to select stream resolution: '))
 
         self.result.liveDict["flv_pull_url0"] = self.result.liveDict["flv_pull_url"][flv[rate]]
 
-        # 显示清晰度列表
+        # Display resolution list
         print('[   %s   ]:%s' % (flv[rate], self.result.liveDict["flv_pull_url"][flv[rate]]))
-        print('[   📺   ]:复制链接使用下载工具下载')
+        print('[   📺   ]: Copy the link and use a download tool to download')
         return self.result.liveDict
 
     def getMixInfo(self, mix_id, count=35, number=0, increase=False, sec_uid="", start_time="", end_time=""):
-        """获取合集信息"""
+        """Get collection information"""
         if mix_id is None:
             return None
 
-        # 处理时间范围
+        # Handle time range
         if end_time == "now":
             end_time = time.strftime("%Y-%m-%d")
         
@@ -564,7 +564,7 @@ class Douyin(object):
         if not end_time:
             end_time = "2099-12-31"
 
-        self.console.print(f"[cyan]🕒 时间范围: {start_time} 至 {end_time}[/]")
+        self.console.print(f"[cyan]🕒 Time range: {start_time} to {end_time}[/]")
 
         cursor = 0
         awemeList = []
@@ -581,40 +581,40 @@ class Douyin(object):
             transient=True
         ) as progress:
             fetch_task = progress.add_task(
-                "[cyan]📥 正在获取合集作品...",
+                "[cyan]📥 Fetching collection works...",
                 total=None
             )
 
-            while True:  # 外层循环
+            while True:  # Outer loop
                 try:
                     mix_params = f'mix_id={mix_id}&cursor={cursor}&count={count}&device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&version_code=170400&version_name=17.4.0&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=122.0.0.0&browser_online=true&engine_name=Blink&engine_version=122.0.0.0&os_name=Mac&os_version=10.15.7&cpu_core_num=8&device_memory=8&platform=PC&downlink=10&effective_type=4g&round_trip_time=50'
                     url = self.urls.USER_MIX + utils.getXbogus(mix_params)
 
                     res = requests.get(url=url, headers=douyin_headers, timeout=10)
 
-                    # 检查HTTP状态码
+                    # Check HTTP status code
                     if res.status_code != 200:
-                        self.console.print(f"[red]❌ 合集HTTP请求失败: {res.status_code}[/]")
+                        self.console.print(f"[red]❌ Collection HTTP request failed: {res.status_code}[/]")
                         break
 
                     try:
                         datadict = json.loads(res.text)
                     except json.JSONDecodeError as e:
-                        self.console.print(f"[red]❌ 合集JSON解析失败: {str(e)}[/]")
-                        self.console.print(f"[yellow]🔍 响应内容: {res.text[:500]}...[/]")
+                        self.console.print(f"[red]❌ Collection JSON parsing failed: {str(e)}[/]")
+                        self.console.print(f"[yellow]🔍 Response content: {res.text[:500]}...[/]")
                         break
 
                     if not datadict:
-                        self.console.print("[red]❌ 获取合集数据失败[/]")
+                        self.console.print("[red]❌ Failed to get collection data[/]")
                         break
 
                     if datadict.get("status_code") != 0:
-                        self.console.print(f"[red]❌ 合集API请求失败: {datadict.get('status_msg', '未知错误')}[/]")
+                        self.console.print(f"[red]❌ Collection API request failed: {datadict.get('status_msg', 'Unknown error')}[/]")
                         break
 
                     if "aweme_list" not in datadict:
-                        self.console.print(f"[red]❌ 合集响应中缺少aweme_list字段[/]")
-                        self.console.print(f"[yellow]🔍 可用字段: {list(datadict.keys())}[/]")
+                        self.console.print(f"[red]❌ Collection response missing aweme_list field[/]")
+                        self.console.print(f"[yellow]🔍 Available fields: {list(datadict.keys())}[/]")
                         break
 
                     for aweme in datadict["aweme_list"]:
@@ -623,52 +623,52 @@ class Douyin(object):
                             time.localtime(int(aweme.get("create_time", 0)))
                         )
 
-                        # 时间过滤
+                        # Time filtering
                         if not (start_time <= create_time <= end_time):
                             filtered_count += 1
                             continue
 
-                        # 数量限制检查
+                        # Limit count check
                         if number > 0 and len(awemeList) >= number:
-                            return awemeList  # 使用return替代break
+                            return awemeList  # Use return instead of break
 
-                        # 增量更新检查
+                        # Incremental update check
                         if self.database:
                             if self.db.get_mix(sec_uid=sec_uid, mix_id=mix_id, aweme_id=aweme['aweme_id']):
                                 if increase and aweme['is_top'] == 0:
-                                    return awemeList  # 使用return替代break
+                                    return awemeList  # Use return instead of break
                             else:
                                 self.db.insert_mix(sec_uid=sec_uid, mix_id=mix_id, aweme_id=aweme['aweme_id'], data=aweme)
 
-                        # 转换数据
+                        # Convert data
                         aweme_data = self._convert_aweme_data(aweme)
                         if aweme_data:
                             awemeList.append(aweme_data)
 
-                    # 检查是否还有更多数据
+                    # Check if there is more data
                     if not datadict.get("has_more"):
-                        self.console.print(f"[green]✅ 已获取全部作品[/]")
+                        self.console.print(f"[green]✅ Fetched all works[/]")
                         break
 
-                    # 更新游标
+                    # Update cursor
                     cursor = datadict.get("cursor", 0)
                     total_fetched += len(datadict["aweme_list"])
-                    progress.update(fetch_task, description=f"[cyan]📥 已获取: {total_fetched}个作品")
+                    progress.update(fetch_task, description=f"[cyan]📥 Fetched: {total_fetched} works")
 
                 except Exception as e:
-                    self.console.print(f"[red]❌ 获取作品列表出错: {str(e)}[/]")
-                    # 添加更详细的错误信息
+                    self.console.print(f"[red]❌ Error fetching work list: {str(e)}[/]")
+                    # Add more detailed error information
                     if 'datadict' in locals():
-                        self.console.print(f"[yellow]🔍 最后一次响应: {str(datadict)[:300]}...[/]")
+                        self.console.print(f"[yellow]🔍 Last response: {str(datadict)[:300]}...[/]")
                     break
 
         if filtered_count > 0:
-            self.console.print(f"[yellow]⚠️  已过滤 {filtered_count} 个不在时间范围内的作品[/]")
+            self.console.print(f"[yellow]⚠️  Filtered {filtered_count} works not in the time range[/]")
 
         return awemeList
 
     def getUserAllMixInfo(self, sec_uid, count=35, number=0):
-        print('[  提示  ]:正在请求的用户 id = %s\r\n' % sec_uid)
+        print('[  INFO  ]: Requesting user id = %s\r\n' % sec_uid)
         if sec_uid is None:
             return None
         if number <= 0:
@@ -679,33 +679,33 @@ class Douyin(object):
         cursor = 0
         mixIdNameDict = {}
 
-        print("[  提示  ]:正在获取主页下所有合集 id 数据请稍后...\r")
-        print("[  提示  ]:会进行多次请求，等待时间较长...\r\n")
+        print("[  INFO  ]: Fetching all collection ID data from the homepage, please wait...\r")
+        print("[  INFO  ]: Multiple requests will be made, this may take some time...\r\n")
         times = 0
         while True:
             times = times + 1
-            print("[  提示  ]:正在对 [合集列表] 进行第 " + str(times) + " 次请求...\r")
+            print("[  INFO  ]: Making request " + str(times) + " for [Collection List]...\r")
 
-            start = time.time()  # 开始时间
+            start = time.time()  # Start time
             while True:
-                # 接口不稳定, 有时服务器不返回数据, 需要重新获取
+                # API is unstable, sometimes the server does not return data, need to re-fetch
                 try:
                     mix_list_params = f'sec_user_id={sec_uid}&count={count}&cursor={cursor}&device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&version_code=170400&version_name=17.4.0&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=122.0.0.0&browser_online=true&engine_name=Blink&engine_version=122.0.0.0&os_name=Mac&os_version=10.15.7&cpu_core_num=8&device_memory=8&platform=PC&downlink=10&effective_type=4g&round_trip_time=50'
                     url = self.urls.USER_MIX_LIST + utils.getXbogus(mix_list_params)
 
                     res = requests.get(url=url, headers=douyin_headers, timeout=10)
 
-                    # 检查HTTP状态码
+                    # Check HTTP status code
                     if res.status_code != 200:
-                        self.console.print(f"[red]❌ 合集列表HTTP请求失败: {res.status_code}[/]")
+                        self.console.print(f"[red]❌ Collection list HTTP request failed: {res.status_code}[/]")
                         break
 
                     try:
-                        # 尝试直接解析，如果失败则检查是否为压缩格式
+                        # Try direct parsing, if it fails then check if it's a compressed format
                         try:
                             datadict = json.loads(res.text)
                         except json.JSONDecodeError:
-                            # 可能是压缩响应，尝试手动解压
+                            # Might be a compressed response, try manual decompression
                             content_encoding = res.headers.get('content-encoding', '').lower()
                             if content_encoding == 'gzip':
                                 import gzip
@@ -717,43 +717,43 @@ class Douyin(object):
                                     content = brotli.decompress(res.content).decode('utf-8')
                                     datadict = json.loads(content)
                                 except ImportError:
-                                    self.console.print("[red]❌ 需要安装brotli库来处理br压缩: pip install brotli[/]")
+                                    self.console.print("[red]❌ Need to install brotli library to handle br compression: pip install brotli[/]")
                                     raise
                             else:
-                                raise  # 重新抛出原始异常
+                                raise  # Re-throw original exception
                     except json.JSONDecodeError as e:
-                        self.console.print(f"[red]❌ 合集列表JSON解析失败: {str(e)}[/]")
-                        self.console.print(f"[yellow]🔍 响应内容: {res.text[:500]}...[/]")
-                        self.console.print(f"[yellow]🔍 响应头: {dict(res.headers)}[/]")
+                        self.console.print(f"[red]❌ Collection list JSON parsing failed: {str(e)}[/]")
+                        self.console.print(f"[yellow]🔍 Response content: {res.text[:500]}...[/]")
+                        self.console.print(f"[yellow]🔍 Response headers: {dict(res.headers)}[/]")
                         break
 
-                    # 检查响应结构
+                    # Check response structure
                     if not datadict:
-                        self.console.print("[red]❌ 获取合集列表数据失败[/]")
+                        self.console.print("[red]❌ Failed to get collection list data[/]")
                         break
 
                     if datadict.get("status_code") != 0:
-                        self.console.print(f"[red]❌ 合集列表API请求失败: {datadict.get('status_msg', '未知错误')}[/]")
+                        self.console.print(f"[red]❌ Collection list API request failed: {datadict.get('status_msg', 'Unknown error')}[/]")
                         break
 
                     if "mix_infos" not in datadict:
-                        self.console.print(f"[red]❌ 响应中缺少mix_infos字段[/]")
-                        self.console.print(f"[yellow]🔍 可用字段: {list(datadict.keys())}[/]")
+                        self.console.print(f"[red]❌ Response missing mix_infos field[/]")
+                        self.console.print(f"[yellow]🔍 Available fields: {list(datadict.keys())}[/]")
                         break
 
-                    print('[  提示  ]:本次请求返回 ' + str(len(datadict["mix_infos"])) + ' 条数据\r')
+                    print('[  INFO  ]: This request returned ' + str(len(datadict["mix_infos"])) + ' items\r')
 
                     if datadict is not None and datadict["status_code"] == 0:
                         break
                 except Exception as e:
-                    end = time.time()  # 结束时间
+                    end = time.time()  # End time
                     if end - start > self.timeout:
-                        print("[  提示  ]:重复请求该接口" + str(self.timeout) + "s, 仍然未获取到数据")
+                        print("[  INFO  ]: Repeatedly requested this interface for " + str(self.timeout) + "s, still no data obtained")
                         return mixIdNameDict
 
-            # 检查datadict是否成功获取
+            # Check if datadict was successfully obtained
             if 'datadict' not in locals() or not datadict:
-                print("[  提示  ]:未能获取到有效的合集列表数据")
+                print("[  INFO  ]: Failed to obtain valid collection list data")
                 return mixIdNameDict
 
 
@@ -764,23 +764,23 @@ class Douyin(object):
                     if number == 0:
                         break
             if numflag and number == 0:
-                print("\r\n[  提示  ]:[合集列表] 下指定数量合集数据获取完成...\r\n")
+                print("\r\n[  INFO  ]: Specified number of collections obtained from [Collection List]...\r\n")
                 break
 
-            # 更新 max_cursor
+            # Update max_cursor
             cursor = datadict["cursor"]
 
-            # 退出条件
+            # Exit condition
             if datadict["has_more"] == 0 or datadict["has_more"] == False:
-                print("[  提示  ]:[合集列表] 下所有合集 id 数据获取完成...\r\n")
+                print("[  INFO  ]: All collection ID data obtained from [Collection List]...\r\n")
                 break
             else:
-                print("\r\n[  提示  ]:[合集列表] 第 " + str(times) + " 次请求成功...\r\n")
+                print("\r\n[  INFO  ]: Request " + str(times) + " for [Collection List] successful...\r\n")
 
         return mixIdNameDict
 
     def getMusicInfo(self, music_id: str, count=35, number=0, increase=False):
-        print('[  提示  ]:正在请求的音乐集合 id = %s\r\n' % music_id)
+        print('[  INFO  ]: Requesting music collection id = %s\r\n' % music_id)
         if music_id is None:
             return None
         if number <= 0:
@@ -793,73 +793,73 @@ class Douyin(object):
         increaseflag = False
         numberis0 = False
 
-        print("[  提示  ]:正在获取音乐集合下的所有作品数据请稍后...\r")
-        print("[  提示  ]:会进行多次请求，等待时间较长...\r\n")
+        print("[  INFO  ]: Fetching all work data under the music collection, please wait...\r")
+        print("[  INFO  ]: Multiple requests will be made, this may take some time...\r\n")
         times = 0
         while True:
             times = times + 1
-            print("[  提示  ]:正在对 [音乐集合] 进行第 " + str(times) + " 次请求...\r")
+            print("[  INFO  ]: Making request " + str(times) + " for [Music Collection]...\r")
 
-            start = time.time()  # 开始时间
+            start = time.time()  # Start time
             while True:
-                # 接口不稳定, 有时服务器不返回数据, 需要重新获取
+                # API is unstable, sometimes the server does not return data, need to re-fetch
                 try:
                     music_params = f'music_id={music_id}&cursor={cursor}&count={count}&device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&version_code=170400&version_name=17.4.0&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=122.0.0.0&browser_online=true&engine_name=Blink&engine_version=122.0.0.0&os_name=Mac&os_version=10.15.7&cpu_core_num=8&device_memory=8&platform=PC&downlink=10&effective_type=4g&round_trip_time=50'
                     url = self.urls.MUSIC + utils.getXbogus(music_params)
 
                     res = requests.get(url=url, headers=douyin_headers, timeout=10)
 
-                    # 检查HTTP状态码
+                    # Check HTTP status code
                     if res.status_code != 200:
-                        self.console.print(f"[red]❌ 音乐HTTP请求失败: {res.status_code}[/]")
+                        self.console.print(f"[red]❌ Music HTTP request failed: {res.status_code}[/]")
                         break
 
                     try:
                         datadict = json.loads(res.text)
                     except json.JSONDecodeError as e:
-                        self.console.print(f"[red]❌ 音乐JSON解析失败: {str(e)}[/]")
-                        self.console.print(f"[yellow]🔍 响应内容: {res.text[:500]}...[/]")
+                        self.console.print(f"[red]❌ Music JSON parsing failed: {str(e)}[/]")
+                        self.console.print(f"[yellow]🔍 Response content: {res.text[:500]}...[/]")
                         break
 
                     if not datadict:
-                        self.console.print("[red]❌ 获取音乐数据失败[/]")
+                        self.console.print("[red]❌ Failed to get music data[/]")
                         break
 
                     if datadict.get("status_code") != 0:
-                        self.console.print(f"[red]❌ 音乐API请求失败: {datadict.get('status_msg', '未知错误')}[/]")
+                        self.console.print(f"[red]❌ Music API request failed: {datadict.get('status_msg', 'Unknown error')}[/]")
                         break
 
                     if "aweme_list" not in datadict:
-                        self.console.print(f"[red]❌ 音乐响应中缺少aweme_list字段[/]")
-                        self.console.print(f"[yellow]🔍 可用字段: {list(datadict.keys())}[/]")
+                        self.console.print(f"[red]❌ Music response missing aweme_list field[/]")
+                        self.console.print(f"[yellow]🔍 Available fields: {list(datadict.keys())}[/]")
                         break
 
-                    print('[  提示  ]:本次请求返回 ' + str(len(datadict["aweme_list"])) + ' 条数据\r')
+                    print('[  INFO  ]: This request returned ' + str(len(datadict["aweme_list"])) + ' items\r')
 
                     if datadict is not None and datadict["status_code"] == 0:
                         break
                 except Exception as e:
-                    end = time.time()  # 结束时间
+                    end = time.time()  # End time
                     if end - start > self.timeout:
-                        print("[  提示  ]:重复请求该接口" + str(self.timeout) + "s, 仍然未获取到数据")
+                        print("[  INFO  ]: Repeatedly requested this interface for " + str(self.timeout) + "s, still no data obtained")
                         return awemeList
 
 
             for aweme in datadict["aweme_list"]:
                 if self.database:
-                    # 退出条件
+                    # Exit condition
                     if increase is False and numflag and numberis0:
                         break
                     if increase and numflag and numberis0 and increaseflag:
                         break
-                    # 增量更新, 找到非置顶的最新的作品发布时间
+                    # Incremental update, find the latest work release time that is not pinned
                     if self.db.get_music(music_id=music_id, aweme_id=aweme['aweme_id']) is not None:
                         if increase and aweme['is_top'] == 0:
                             increaseflag = True
                     else:
                         self.db.insert_music(music_id=music_id, aweme_id=aweme['aweme_id'], data=aweme)
 
-                    # 退出条件
+                    # Exit condition
                     if increase and numflag is False and increaseflag:
                         break
                     if increase and numflag and numberis0 and increaseflag:
@@ -873,18 +873,18 @@ class Douyin(object):
                     if number == 0:
                         numberis0 = True
 
-                # 清空self.awemeDict
+                # Clear self.awemeDict
                 self.result.clearDict(self.result.awemeDict)
 
-                # 默认为视频
+                # Default to video
                 awemeType = 0
                 try:
                     if aweme["images"] is not None:
                         awemeType = 1
                 except Exception as e:
-                    print("[  警告  ]:接口中未找到 images\r")
+                    print("[  WARNING  ]: Images not found in interface\r")
 
-                # 转换成我们自己的格式
+                # Convert to our own format
                 self.result.dataConvert(awemeType, self.result.awemeDict, aweme)
 
                 if self.result.awemeDict is not None and self.result.awemeDict != {}:
@@ -892,28 +892,28 @@ class Douyin(object):
 
             if self.database:
                 if increase and numflag is False and increaseflag:
-                    print("\r\n[  提示  ]: [音乐集合] 下作品增量更新数据获取完成...\r\n")
+                    print("\r\n[  INFO  ]: Incremental update data for [Music Collection] obtained...\r\n")
                     break
                 elif increase is False and numflag and numberis0:
-                    print("\r\n[  提示  ]: [音乐集合] 下指定数量作品数据获取完成...\r\n")
+                    print("\r\n[  INFO  ]: Specified number of works for [Music Collection] obtained...\r\n")
                     break
                 elif increase and numflag and numberis0 and increaseflag:
-                    print("\r\n[  提示  ]: [音乐集合] 下指定数量作品数据获取完成, 增量更新数据获取完成...\r\n")
+                    print("\r\n[  INFO  ]: Specified number of works and incremental update data for [Music Collection] obtained...\r\n")
                     break
             else:
                 if numflag and numberis0:
-                    print("\r\n[  提示  ]: [音乐集合] 下指定数量作品数据获取完成...\r\n")
+                    print("\r\n[  INFO  ]: Specified number of works for [Music Collection] obtained...\r\n")
                     break
 
-            # 更新 cursor
+            # Update cursor
             cursor = datadict["cursor"]
 
-            # 退出条件
+            # Exit condition
             if datadict["has_more"] == 0 or datadict["has_more"] == False:
-                print("\r\n[  提示  ]:[音乐集合] 下所有作品数据获取完成...\r\n")
+                print("\r\n[  INFO  ]: All work data for [Music Collection] obtained...\r\n")
                 break
             else:
-                print("\r\n[  提示  ]:[音乐集合] 第 " + str(times) + " 次请求成功...\r\n")
+                print("\r\n[  INFO  ]: Request " + str(times) + " for [Music Collection] successful...\r\n")
 
         return awemeList
 
@@ -922,9 +922,9 @@ class Douyin(object):
             return None
 
         datadict = {}
-        start = time.time()  # 开始时间
+        start = time.time()  # Start time
         while True:
-            # 接口不稳定, 有时服务器不返回数据, 需要重新获取
+            # API is unstable, sometimes the server does not return data, need to re-fetch
             try:
                 user_detail_params = f'sec_user_id={sec_uid}&device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&version_code=170400&version_name=17.4.0&cookie_enabled=true&screen_width=1920&screen_height=1080&browser_language=zh-CN&browser_platform=MacIntel&browser_name=Chrome&browser_version=122.0.0.0&browser_online=true&engine_name=Blink&engine_version=122.0.0.0&os_name=Mac&os_version=10.15.7&cpu_core_num=8&device_memory=8&platform=PC&downlink=10&effective_type=4g&round_trip_time=50'
                 url = self.urls.USER_DETAIL + utils.getXbogus(user_detail_params)
@@ -935,9 +935,9 @@ class Douyin(object):
                 if datadict is not None and datadict["status_code"] == 0:
                     return datadict
             except Exception as e:
-                end = time.time()  # 结束时间
+                end = time.time()  # End time
                 if end - start > self.timeout:
-                    print("[  提示  ]:重复请求该接口" + str(self.timeout) + "s, 仍然未获取到数据")
+                    print("[  INFO  ]: Repeatedly requested this interface for " + str(self.timeout) + "s, still no data obtained")
                     return datadict
 
 

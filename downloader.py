@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-抖音下载器 - 统一增强版
-支持视频、图文、用户主页、合集等多种内容的批量下载
+Douyin Downloader - Unified Enhanced Version
+Supports batch downloading of videos, images, user homepages, collections, and more.
 """
 
 import asyncio
@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 import argparse
 import yaml
 
-# 第三方库
+# Third-party libraries
 try:
     import aiohttp
     import requests
@@ -31,13 +31,13 @@ try:
     from rich.live import Live
     from rich import print as rprint
 except ImportError as e:
-    print(f"请安装必要的依赖: pip install aiohttp requests rich pyyaml")
+    print(f"Please install necessary dependencies: pip install aiohttp requests rich pyyaml")
     sys.exit(1)
 
-# 添加项目路径
+# Add project path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# 导入项目模块
+# Import project modules
 from apiproxy.douyin import douyin_headers
 from apiproxy.douyin.urls import Urls
 from apiproxy.douyin.result import Result
@@ -45,7 +45,7 @@ from apiproxy.common.utils import Utils
 from apiproxy.douyin.auth.cookie_manager import AutoCookieManager
 from apiproxy.douyin.database import DataBase
 
-# 配置日志
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -61,7 +61,7 @@ console = Console()
 
 
 class ContentType:
-    """内容类型枚举"""
+    """Content type enumeration"""
     VIDEO = "video"
     IMAGE = "image" 
     USER = "user"
@@ -71,7 +71,7 @@ class ContentType:
 
 
 class DownloadStats:
-    """下载统计"""
+    """Download statistics"""
     def __init__(self):
         self.total = 0
         self.success = 0
@@ -99,14 +99,14 @@ class DownloadStats:
 
 
 class RateLimiter:
-    """速率限制器"""
+    """Rate limiter"""
     def __init__(self, max_per_second: float = 2):
         self.max_per_second = max_per_second
         self.min_interval = 1.0 / max_per_second
         self.last_request = 0
     
     async def acquire(self):
-        """获取许可"""
+        """Acquire permission"""
         current = time.time()
         time_since_last = current - self.last_request
         if time_since_last < self.min_interval:
@@ -115,13 +115,13 @@ class RateLimiter:
 
 
 class RetryManager:
-    """重试管理器"""
+    """Retry manager"""
     def __init__(self, max_retries: int = 3):
         self.max_retries = max_retries
-        self.retry_delays = [1, 2, 5]  # 重试延迟
+        self.retry_delays = [1, 2, 5]  # Retry delays
     
     async def execute_with_retry(self, func, *args, **kwargs):
-        """执行函数并自动重试"""
+        """Execute function and auto-retry"""
         last_error = None
         for attempt in range(self.max_retries):
             try:
@@ -130,13 +130,13 @@ class RetryManager:
                 last_error = e
                 if attempt < self.max_retries - 1:
                     delay = self.retry_delays[min(attempt, len(self.retry_delays) - 1)]
-                    logger.warning(f"第 {attempt + 1} 次尝试失败: {e}, {delay}秒后重试...")
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}, retrying in {delay}s...")
                     await asyncio.sleep(delay)
         raise last_error
 
 
 class UnifiedDownloader:
-    """统一下载器"""
+    """Unified Downloader"""
     
     def __init__(self, config_path: str = "config.yml"):
         self.config = self._load_config(config_path)
@@ -144,41 +144,41 @@ class UnifiedDownloader:
         self.result_helper = Result()
         self.utils = Utils()
         
-        # 组件初始化
+        # Component initialization
         self.stats = DownloadStats()
         self.rate_limiter = RateLimiter(max_per_second=2)
         self.retry_manager = RetryManager(max_retries=self.config.get('retry_times', 3))
         
-        # Cookie与请求头（延迟初始化，支持自动获取）
+        # Cookie and headers (lazy initialization, supports auto-fetch)
         self.cookies = self.config.get('cookies') if 'cookies' in self.config else self.config.get('cookie')
         self.auto_cookie = bool(self.config.get('auto_cookie')) or (isinstance(self.config.get('cookie'), str) and self.config.get('cookie') == 'auto') or (isinstance(self.config.get('cookies'), str) and self.config.get('cookies') == 'auto')
         self.headers = {**douyin_headers}
-        # 避免服务端使用brotli导致aiohttp无法解压（未安装brotli库时会出现空响应）
+        # Avoid server using brotli causing aiohttp decompression failure (empty response if brotli library not installed)
         self.headers['accept-encoding'] = 'gzip, deflate'
-        # 增量下载与数据库
+        # Incremental download and database
         self.increase_cfg: Dict[str, Any] = self.config.get('increase', {}) or {}
         self.enable_database: bool = bool(self.config.get('database', True))
         self.db: Optional[DataBase] = DataBase() if self.enable_database else None
         
-        # 保存路径
+        # Save path
         self.save_path = Path(self.config.get('path', './Downloaded'))
         self.save_path.mkdir(parents=True, exist_ok=True)
         
     def _load_config(self, config_path: str) -> Dict:
-        """加载配置文件"""
+        """Load configuration file"""
         if not os.path.exists(config_path):
-            # 兼容配置文件命名：优先 config.yml，其次 config_simple.yml
+            # Compatible config naming: priority config.yml, then config_simple.yml
             alt_path = 'config_simple.yml'
             if os.path.exists(alt_path):
                 config_path = alt_path
             else:
-                # 返回一个空配置，由命令行参数决定
+                # Return empty config, determined by CLI arguments
                 return {}
         
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
-        # 简化配置兼容：links/link, output_dir/path, cookie/cookies
+        # Simplify config compatibility: links/link, output_dir/path, cookie/cookies
         if 'links' in config and 'link' not in config:
             config['link'] = config['links']
         if 'output_dir' in config and 'path' not in config:
@@ -188,19 +188,19 @@ class UnifiedDownloader:
         if isinstance(config.get('cookies'), str) and config.get('cookies') == 'auto':
             config['auto_cookie'] = True
         
-        # 允许无 link（通过命令行传入）
-        # 如果两者都没有，后续会在运行时提示
+        # Allow no link (passed via CLI)
+        # If both are missing, prompt later at runtime
         
         return config
     
     def _build_cookie_string(self) -> str:
-        """构建Cookie字符串"""
+        """Build Cookie string"""
         if isinstance(self.cookies, str):
             return self.cookies
         elif isinstance(self.cookies, dict):
             return '; '.join([f'{k}={v}' for k, v in self.cookies.items()])
         elif isinstance(self.cookies, list):
-            # 支持来自AutoCookieManager的cookies列表
+            # Support cookies list from AutoCookieManager
             try:
                 kv = {c.get('name'): c.get('value') for c in self.cookies if c.get('name') and c.get('value')}
                 return '; '.join([f'{k}={v}' for k, v in kv.items()])
@@ -209,24 +209,24 @@ class UnifiedDownloader:
         return ''
 
     async def _initialize_cookies_and_headers(self):
-        """初始化Cookie与请求头（支持自动获取）"""
-        # 若配置为字符串 'auto'，视为未提供，触发自动获取
+        """Initialize Cookie and headers (supports auto-fetch)"""
+        # If config is 'auto', treat as not provided, trigger auto-fetch
         if isinstance(self.cookies, str) and self.cookies.strip().lower() == 'auto':
             self.cookies = None
         
-        # 若已显式提供cookies，则直接使用
+        # If cookies explicitly provided, use directly
         cookie_str = self._build_cookie_string()
         if cookie_str:
             self.headers['Cookie'] = cookie_str
-            # 同时设置到全局 douyin_headers，确保所有 API 请求都能使用
+            # Also set to global douyin_headers to ensure all API requests use it
             from apiproxy.douyin import douyin_headers
             douyin_headers['Cookie'] = cookie_str
             return
         
-        # 自动获取Cookie
+        # Auto-fetch Cookie
         if self.auto_cookie:
             try:
-                console.print("[cyan]🔐 正在自动获取Cookie...[/cyan]")
+                console.print("[cyan]🔐 Automatically fetching Cookie...[/cyan]")
                 async with AutoCookieManager(cookie_file='cookies.pkl', headless=False) as cm:
                     cookies_list = await cm.get_cookies()
                     if cookies_list:
@@ -234,20 +234,20 @@ class UnifiedDownloader:
                         cookie_str = self._build_cookie_string()
                         if cookie_str:
                             self.headers['Cookie'] = cookie_str
-                            # 同时设置到全局 douyin_headers，确保所有 API 请求都能使用
+                            # Also set to global douyin_headers to ensure all API requests use it
                             from apiproxy.douyin import douyin_headers
                             douyin_headers['Cookie'] = cookie_str
-                            console.print("[green]✅ Cookie获取成功[/green]")
+                            console.print("[green]✅ Cookie fetched successfully[/green]")
                             return
-                console.print("[yellow]⚠️ 自动获取Cookie失败或为空，继续尝试无Cookie模式[/yellow]")
+                console.print("[yellow]⚠️ Auto-fetch Cookie failed or empty, continuing in no-Cookie mode[/yellow]")
             except Exception as e:
-                logger.warning(f"自动获取Cookie失败: {e}")
-                console.print("[yellow]⚠️ 自动获取Cookie失败，继续尝试无Cookie模式[/yellow]")
+                logger.warning(f"Auto-fetch Cookie failed: {e}")
+                console.print("[yellow]⚠️ Auto-fetch Cookie failed, continuing in no-Cookie mode[/yellow]")
         
-        # 未能获取Cookie则不设置，使用默认headers
+        # If failed to get Cookie, don't set it, use default headers
     
     def detect_content_type(self, url: str) -> ContentType:
-        """检测URL内容类型"""
+        """Detect URL content type"""
         if '/user/' in url:
             return ContentType.USER
         elif '/video/' in url or 'v.douyin.com' in url:
@@ -261,29 +261,29 @@ class UnifiedDownloader:
         elif 'live.douyin.com' in url:
             return ContentType.LIVE
         else:
-            return ContentType.VIDEO  # 默认当作视频
+            return ContentType.VIDEO  # Default to video
     
     async def resolve_short_url(self, url: str) -> str:
-        """解析短链接"""
+        """Resolve short URL"""
         if 'v.douyin.com' in url:
             try:
-                # 使用同步请求获取重定向
+                # Use synchronous request to get redirect
                 response = requests.get(url, headers=self.headers, allow_redirects=True, timeout=10)
                 final_url = response.url
-                logger.info(f"解析短链接: {url} -> {final_url}")
+                logger.info(f"Resolve short URL: {url} -> {final_url}")
                 return final_url
             except Exception as e:
-                logger.warning(f"解析短链接失败: {e}")
+                logger.warning(f"Failed to resolve short URL: {e}")
         return url
     
     def extract_id_from_url(self, url: str, content_type: ContentType = None) -> Optional[str]:
-        """从URL提取ID
+        """Extract ID from URL
         
         Args:
-            url: 要解析的URL
-            content_type: 内容类型（可选，用于指导提取）
+            url: URL to parse
+            content_type: Content type (optional, used to guide extraction)
         """
-        # 如果已知是用户页面，直接提取用户ID
+        # If known as user page, extract user ID directly
         if content_type == ContentType.USER or '/user/' in url:
             user_patterns = [
                 r'/user/([\w-]+)',
@@ -294,10 +294,10 @@ class UnifiedDownloader:
                 match = re.search(pattern, url)
                 if match:
                     user_id = match.group(1)
-                    logger.info(f"提取到用户ID: {user_id}")
+                    logger.info(f"Extracted user ID: {user_id}")
                     return user_id
         
-        # 视频ID模式（优先）
+        # Video ID patterns (priority)
         video_patterns = [
             r'/video/(\d+)',
             r'/note/(\d+)',
@@ -310,10 +310,10 @@ class UnifiedDownloader:
             match = re.search(pattern, url)
             if match:
                 video_id = match.group(1)
-                logger.info(f"提取到视频ID: {video_id}")
+                logger.info(f"Extracted video ID: {video_id}")
                 return video_id
         
-        # 其他模式
+        # Other patterns
         other_patterns = [
             r'/collection/(\d+)',
             r'/music/(\d+)'
@@ -324,35 +324,35 @@ class UnifiedDownloader:
             if match:
                 return match.group(1)
         
-        # 尝试从URL中提取数字ID
+        # Try to extract numeric ID from URL
         number_match = re.search(r'(\d{15,20})', url)
         if number_match:
             video_id = number_match.group(1)
-            logger.info(f"从URL提取到数字ID: {video_id}")
+            logger.info(f"Extracted numeric ID from URL: {video_id}")
             return video_id
         
-        logger.error(f"无法从URL提取ID: {url}")
+        logger.error(f"Unable to extract ID from URL: {url}")
         return None
 
     def _get_aweme_id_from_info(self, info: Dict) -> Optional[str]:
-        """从 aweme 信息中提取 aweme_id"""
+        """Extract aweme_id from aweme info"""
         try:
             if 'aweme_id' in info:
                 return str(info.get('aweme_id'))
-            # aweme_detail 结构
+            # aweme_detail structure
             return str(info.get('aweme', {}).get('aweme_id') or info.get('aweme_id'))
         except Exception:
             return None
 
     def _get_sec_uid_from_info(self, info: Dict) -> Optional[str]:
-        """从 aweme 信息中提取作者 sec_uid"""
+        """Extract author sec_uid from aweme info"""
         try:
             return info.get('author', {}).get('sec_uid')
         except Exception:
             return None
 
     def _should_skip_increment(self, context: str, info: Dict, mix_id: Optional[str] = None, music_id: Optional[str] = None, sec_uid: Optional[str] = None) -> bool:
-        """根据增量配置与数据库记录判断是否跳过下载"""
+        """Determine whether to skip download based on incremental config and database records"""
         if not self.db:
             return False
         aweme_id = self._get_aweme_id_from_info(info)
@@ -378,7 +378,7 @@ class UnifiedDownloader:
         return False
 
     def _record_increment(self, context: str, info: Dict, mix_id: Optional[str] = None, music_id: Optional[str] = None, sec_uid: Optional[str] = None):
-        """下载成功后写入数据库记录"""
+        """Write database record after successful download"""
         if not self.db:
             return
         aweme_id = self._get_aweme_id_from_info(info)
@@ -402,105 +402,105 @@ class UnifiedDownloader:
             pass
     
     async def download_single_video(self, url: str, progress=None) -> bool:
-        """下载单个视频/图文"""
+        """Download single video/image set"""
         try:
-            # 解析短链接
+            # Resolve short URL
             url = await self.resolve_short_url(url)
             
-            # 提取ID
+            # Extract ID
             video_id = self.extract_id_from_url(url, ContentType.VIDEO)
             if not video_id:
-                logger.error(f"无法从URL提取ID: {url}")
+                logger.error(f"Unable to extract ID from URL: {url}")
                 return False
             
-            # 如果没有提取到视频ID，尝试作为视频ID直接使用
+            # If video ID not extracted, try using it directly as video ID
             if not video_id and '/user/' not in url:
-                # 可能短链接直接包含了视频ID
+                # Short URL might contain video ID directly
                 video_id = url.split('/')[-2] if url.endswith('/') else url.split('/')[-1]
-                logger.info(f"尝试从短链接路径提取ID: {video_id}")
+                logger.info(f"Attempting to extract ID from short URL path: {video_id}")
             
             if not video_id:
-                logger.error(f"无法从URL提取视频ID: {url}")
+                logger.error(f"Unable to extract video ID from URL: {url}")
                 return False
             
-            # 限速
+            # Rate limit
             await self.rate_limiter.acquire()
             
-            # 获取视频信息
+            # Get video info
             if progress:
-                progress.update(task_id=progress.task_ids[-1], description="获取视频信息...")
+                progress.update(task_id=progress.task_ids[-1], description="Fetching video info...")
             
             video_info = await self.retry_manager.execute_with_retry(
                 self._fetch_video_info, video_id
             )
             
             if not video_info:
-                logger.error(f"无法获取视频信息: {video_id}")
+                logger.error(f"Unable to fetch video info: {video_id}")
                 self.stats.failed += 1
                 return False
             
-            # 下载视频文件
+            # Download media files
             if progress:
-                progress.update(task_id=progress.task_ids[-1], description="下载视频文件...")
+                progress.update(task_id=progress.task_ids[-1], description="Downloading media files...")
             
             success = await self._download_media_files(video_info, progress)
             
             if success:
                 self.stats.success += 1
-                logger.info(f"✅ 下载成功: {url}")
+                logger.info(f"✅ Download successful: {url}")
             else:
                 self.stats.failed += 1
-                logger.error(f"❌ 下载失败: {url}")
+                logger.error(f"❌ Download failed: {url}")
             
             return success
             
         except Exception as e:
-            logger.error(f"下载视频异常 {url}: {e}")
+            logger.error(f"Exception downloading video {url}: {e}")
             self.stats.failed += 1
             return False
         finally:
             self.stats.total += 1
     
     async def _fetch_video_info(self, video_id: str) -> Optional[Dict]:
-        """获取视频信息"""
+        """Fetch video info"""
         try:
-            # 直接使用 DouYinCommand.py 中成功的 Douyin 类
+            # Use Douyin class from douyin.py
             from apiproxy.douyin.douyin import Douyin
             
-            # 创建 Douyin 实例
+            # Create Douyin instance
             dy = Douyin(database=False)
             
-            # 设置我们的 cookies 到 douyin_headers
+            # Set our cookies to douyin_headers
             if hasattr(self, 'cookies') and self.cookies:
                 cookie_str = self._build_cookie_string()
                 if cookie_str:
                     from apiproxy.douyin import douyin_headers
                     douyin_headers['Cookie'] = cookie_str
-                    logger.info(f"设置 Cookie 到 Douyin 类: {cookie_str[:100]}...")
+                    logger.info(f"Setting Cookie to Douyin class: {cookie_str[:100]}...")
             
             try:
-                # 使用现有的成功实现
+                # Use existing successful implementation
                 result = dy.getAwemeInfo(video_id)
                 if result:
-                    logger.info(f"Douyin 类成功获取视频信息: {result.get('desc', '')[:30]}")
+                    logger.info(f"Douyin class successfully fetched video info: {result.get('desc', '')[:30]}")
                     return result
                 else:
-                    logger.error("Douyin 类返回空结果")
+                    logger.error("Douyin class returned empty result")
                     
             except Exception as e:
-                logger.error(f"Douyin 类获取视频信息失败: {e}")
+                logger.error(f"Douyin class failed to fetch video info: {e}")
                 
         except Exception as e:
-            logger.error(f"导入或使用 Douyin 类失败: {e}")
+            logger.error(f"Failed to import or use Douyin class: {e}")
             import traceback
             traceback.print_exc()
         
-        # 如果 Douyin 类失败，尝试备用接口（iesdouyin，无需X-Bogus）
+        # If Douyin class fails, try fallback interface (iesdouyin, no X-Bogus required)
         try:
             fallback_url = f"https://www.iesdouyin.com/web/api/v2/aweme/iteminfo/?item_ids={video_id}"
-            logger.info(f"尝试备用接口获取视频信息: {fallback_url}")
+            logger.info(f"Attempting fallback interface to fetch video info: {fallback_url}")
             
-            # 设置更通用的请求头
+            # Set more general headers
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Referer': 'https://www.douyin.com/',
@@ -512,43 +512,43 @@ class UnifiedDownloader:
             
             async with aiohttp.ClientSession() as session:
                 async with session.get(fallback_url, headers=headers, timeout=15) as response:
-                    logger.info(f"备用接口响应状态: {response.status}")
+                    logger.info(f"Fallback interface response status: {response.status}")
                     if response.status != 200:
-                        logger.error(f"备用接口请求失败，状态码: {response.status}")
+                        logger.error(f"Fallback interface request failed, status code: {response.status}")
                         return None
                     
                     text = await response.text()
-                    logger.info(f"备用接口响应内容长度: {len(text)}")
+                    logger.info(f"Fallback interface response content length: {len(text)}")
                     
                     if not text:
-                        logger.error("备用接口响应为空")
+                        logger.error("Fallback interface response is empty")
                         return None
                     
                     try:
                         data = json.loads(text)
-                        logger.info(f"备用接口返回数据: {data}")
+                        logger.info(f"Fallback interface returned data: {data}")
                         
                         item_list = (data or {}).get('item_list') or []
                         if item_list:
                             aweme_detail = item_list[0]
-                            logger.info("备用接口成功获取视频信息")
+                            logger.info("Fallback interface successfully fetched video info")
                             return aweme_detail
                         else:
-                            logger.error("备用接口返回的数据中没有 item_list")
+                            logger.error("Fallback interface returned data without item_list")
                             
                     except json.JSONDecodeError as e:
-                        logger.error(f"备用接口JSON解析失败: {e}")
-                        logger.error(f"原始响应内容: {text}")
+                        logger.error(f"Fallback interface JSON parsing failed: {e}")
+                        logger.error(f"Original response content: {text}")
                         return None
                         
         except Exception as e:
-            logger.error(f"备用接口获取视频信息失败: {e}")
+            logger.error(f"Fallback interface failed to fetch video info: {e}")
         
         return None
     
     def _build_detail_params(self, aweme_id: str) -> str:
-        """构建详情API参数"""
-        # 使用与现有 douyinapi.py 相同的参数格式
+        """Build detail API parameters"""
+        # Use same parameter format as existing douyinapi.py
         params = [
             f'aweme_id={aweme_id}',
             'device_platform=webapp',
@@ -557,15 +557,15 @@ class UnifiedDownloader:
         return '&'.join(params)
     
     async def _download_media_files(self, video_info: Dict, progress=None) -> bool:
-        """下载媒体文件"""
+        """Download media files"""
         try:
-            # 判断类型
+            # Determine type
             is_image = bool(video_info.get('images'))
             
-            # 构建保存路径
+            # Build save path
             author_name = video_info.get('author', {}).get('nickname', 'unknown')
             desc = video_info.get('desc', '')[:50].replace('/', '_')
-            # 兼容 create_time 为时间戳或格式化字符串
+            # Compatible with create_time as timestamp or formatted string
             raw_create_time = video_info.get('create_time')
             dt_obj = None
             if isinstance(raw_create_time, (int, float)):
@@ -588,41 +588,41 @@ class UnifiedDownloader:
             success = True
             
             if is_image:
-                # 下载图文（无水印）
+                # Download image set (no watermark)
                 images = video_info.get('images', [])
                 for i, img in enumerate(images):
                     img_url = self._get_best_quality_url(img.get('url_list', []))
                     if img_url:
                         file_path = save_dir / f"image_{i+1}.jpg"
                         if await self._download_file(img_url, file_path):
-                            logger.info(f"下载图片 {i+1}/{len(images)}: {file_path.name}")
+                            logger.info(f"Downloaded image {i+1}/{len(images)}: {file_path.name}")
                         else:
                             success = False
             else:
-                # 下载视频（无水印）
+                # Download video (no watermark)
                 video_url = self._get_no_watermark_url(video_info)
                 if video_url:
                     file_path = save_dir / f"{folder_name}.mp4"
                     if await self._download_file(video_url, file_path):
-                        logger.info(f"下载视频: {file_path.name}")
+                        logger.info(f"Downloaded video: {file_path.name}")
                     else:
                         success = False
                 
-                # 下载音频
+                # Download audio
                 if self.config.get('music', True):
                     music_url = self._get_music_url(video_info)
                     if music_url:
                         file_path = save_dir / f"{folder_name}_music.mp3"
                         await self._download_file(music_url, file_path)
             
-            # 下载封面
+            # Download cover
             if self.config.get('cover', True):
                 cover_url = self._get_cover_url(video_info)
                 if cover_url:
                     file_path = save_dir / f"{folder_name}_cover.jpg"
                     await self._download_file(cover_url, file_path)
             
-            # 保存JSON数据
+            # Save JSON data
             if self.config.get('json', True):
                 json_path = save_dir / f"{folder_name}_data.json"
                 with open(json_path, 'w', encoding='utf-8') as f:
@@ -631,26 +631,26 @@ class UnifiedDownloader:
             return success
             
         except Exception as e:
-            logger.error(f"下载媒体文件失败: {e}")
+            logger.error(f"Failed to download media files: {e}")
             return False
     
     def _get_no_watermark_url(self, video_info: Dict) -> Optional[str]:
-        """获取无水印视频URL"""
+        """Get no-watermark video URL"""
         try:
-            # 优先使用play_addr_h264
+            # Priority use play_addr_h264
             play_addr = video_info.get('video', {}).get('play_addr_h264') or \
                        video_info.get('video', {}).get('play_addr')
             
             if play_addr:
                 url_list = play_addr.get('url_list', [])
                 if url_list:
-                    # 替换URL以获取无水印版本
+                    # Replace URL to get no-watermark version
                     url = url_list[0]
                     url = url.replace('playwm', 'play')
                     url = url.replace('720p', '1080p')
                     return url
             
-            # 备用：download_addr
+            # Fallback: download_addr
             download_addr = video_info.get('video', {}).get('download_addr')
             if download_addr:
                 url_list = download_addr.get('url_list', [])
@@ -658,26 +658,26 @@ class UnifiedDownloader:
                     return url_list[0]
                     
         except Exception as e:
-            logger.error(f"获取无水印URL失败: {e}")
+            logger.error(f"Failed to get no-watermark URL: {e}")
         
         return None
     
     def _get_best_quality_url(self, url_list: List[str]) -> Optional[str]:
-        """获取最高质量的URL"""
+        """Get highest quality URL"""
         if not url_list:
             return None
         
-        # 优先选择包含特定关键词的URL
+        # Priority select URL containing specific keywords
         for keyword in ['1080', 'origin', 'high']:
             for url in url_list:
                 if keyword in url:
                     return url
         
-        # 返回第一个
+        # Return first one
         return url_list[0]
     
     def _get_music_url(self, video_info: Dict) -> Optional[str]:
-        """获取音乐URL"""
+        """Get music URL"""
         try:
             music = video_info.get('music', {})
             play_url = music.get('play_url', {})
@@ -687,7 +687,7 @@ class UnifiedDownloader:
             return None
     
     def _get_cover_url(self, video_info: Dict) -> Optional[str]:
-        """获取封面URL"""
+        """Get cover URL"""
         try:
             cover = video_info.get('video', {}).get('cover', {})
             url_list = cover.get('url_list', [])
@@ -696,10 +696,10 @@ class UnifiedDownloader:
             return None
     
     async def _download_file(self, url: str, save_path: Path) -> bool:
-        """下载文件"""
+        """Download file"""
         try:
             if save_path.exists():
-                logger.info(f"文件已存在，跳过: {save_path.name}")
+                logger.info(f"File already exists, skipping: {save_path.name}")
                 return True
             
             async with aiohttp.ClientSession() as session:
@@ -710,30 +710,30 @@ class UnifiedDownloader:
                             f.write(content)
                         return True
                     else:
-                        logger.error(f"下载失败，状态码: {response.status}")
+                        logger.error(f"Download failed, status code: {response.status}")
                         return False
                         
         except Exception as e:
-            logger.error(f"下载文件失败 {url}: {e}")
+            logger.error(f"Failed to download file {url}: {e}")
             return False
     
     async def download_user_page(self, url: str) -> bool:
-        """下载用户主页内容"""
+        """Download user homepage content"""
         try:
-            # 提取用户ID
+            # Extract user ID
             user_id = self.extract_id_from_url(url, ContentType.USER)
             if not user_id:
-                logger.error(f"无法从URL提取用户ID: {url}")
+                logger.error(f"Unable to extract user ID from URL: {url}")
                 return False
             
-            console.print(f"\n[cyan]正在获取用户 {user_id} 的作品列表...[/cyan]")
+            console.print(f"\n[cyan]Fetching work list for user {user_id}...[/cyan]")
             
-            # 根据配置下载不同类型的内容
+            # Download different types of content based on config
             mode = self.config.get('mode', ['post'])
             if isinstance(mode, str):
                 mode = [mode]
             
-            # 增加总任务数统计
+            # Increase total task count statistics
             total_posts = 0
             if 'post' in mode:
                 total_posts += self.config.get('number', {}).get('post', 0) or 1
@@ -755,16 +755,16 @@ class UnifiedDownloader:
             return True
             
         except Exception as e:
-            logger.error(f"下载用户主页失败: {e}")
+            logger.error(f"Failed to download user homepage: {e}")
             return False
     
     async def _download_user_posts(self, user_id: str):
-        """下载用户发布的作品"""
+        """Download user's posted works"""
         max_count = self.config.get('number', {}).get('post', 0)
         cursor = 0
         downloaded = 0
         
-        console.print(f"\n[green]开始下载用户发布的作品...[/green]")
+        console.print(f"\n[green]Starting download of user's posted works...[/green]")
         
         with Progress(
             SpinnerColumn(),
@@ -776,10 +776,10 @@ class UnifiedDownloader:
         ) as progress:
             
             while True:
-                # 限速
+                # Rate limit
                 await self.rate_limiter.acquire()
                 
-                # 获取作品列表
+                # Get work list
                 posts_data = await self._fetch_user_posts(user_id, cursor)
                 if not posts_data:
                     break
@@ -788,69 +788,69 @@ class UnifiedDownloader:
                 if not aweme_list:
                     break
                 
-                # 下载作品
+                # Download works
                 for aweme in aweme_list:
                     if max_count > 0 and downloaded >= max_count:
-                        console.print(f"[yellow]已达到下载数量限制: {max_count}[/yellow]")
+                        console.print(f"[yellow]Reached download count limit: {max_count}[/yellow]")
                         return
                     
-                    # 时间过滤
+                    # Time filter
                     if not self._check_time_filter(aweme):
                         continue
                     
-                    # 创建下载任务
+                    # Create download task
                     task_id = progress.add_task(
-                        f"下载作品 {downloaded + 1}", 
+                        f"Downloading work {downloaded + 1}", 
                         total=100
                     )
                     
-                    # 增量判断
+                    # Incremental check
                     if self._should_skip_increment('post', aweme, sec_uid=user_id):
                         continue
                     
-                    # 下载
+                    # Download
                     success = await self._download_media_files(aweme, progress)
                     
                     if success:
                         downloaded += 1
-                        self.stats.success += 1  # 增加成功计数
+                        self.stats.success += 1  # Increase success count
                         progress.update(task_id, completed=100)
                         self._record_increment('post', aweme, sec_uid=user_id)
                     else:
-                        self.stats.failed += 1  # 增加失败计数
-                        progress.update(task_id, description="[red]下载失败[/red]")
+                        self.stats.failed += 1  # Increase failed count
+                        progress.update(task_id, description="[red]Download failed[/red]")
                 
-                # 检查是否有更多
+                # Check if there's more
                 if not posts_data.get('has_more'):
                     break
                 
                 cursor = posts_data.get('max_cursor', 0)
         
-        console.print(f"[green]✅ 用户作品下载完成，共下载 {downloaded} 个[/green]")
+        console.print(f"[green]✅ User works download complete, total downloaded: {downloaded}[/green]")
     
     async def _fetch_user_posts(self, user_id: str, cursor: int = 0) -> Optional[Dict]:
-        """获取用户作品列表"""
+        """Fetch user's work list"""
         try:
-            # 直接使用 Douyin 类的 getUserInfo 方法，就像 DouYinCommand.py 那样
+            # Use getUserInfo method from Douyin class
             from apiproxy.douyin.douyin import Douyin
             
-            # 创建 Douyin 实例
+            # Create Douyin instance
             dy = Douyin(database=False)
             
-            # 获取用户作品列表
+            # Get user work list
             result = dy.getUserInfo(
                 user_id, 
                 "post", 
                 35, 
-                0,  # 不限制数量
-                False,  # 不启用增量
+                0,  # No limit
+                False,  # No incremental
                 "",  # start_time
                 ""   # end_time
             )
             
             if result:
-                logger.info(f"Douyin 类成功获取用户作品列表，共 {len(result)} 个作品")
-                # 转换为期望的格式
+                logger.info(f"Douyin class successfully fetched user work list, total {len(result)} works")
+                # Convert to expected format
                 return {
                     'status_code': 0,
                     'aweme_list': result,
@@ -858,18 +858,18 @@ class UnifiedDownloader:
                     'has_more': False
                 }
             else:
-                logger.error("Douyin 类返回空结果")
+                logger.error("Douyin class returned empty result")
                 return None
                 
         except Exception as e:
-            logger.error(f"获取用户作品列表失败: {e}")
+            logger.error(f"Failed to fetch user work list: {e}")
             import traceback
             traceback.print_exc()
         
         return None
     
     async def _download_user_likes(self, user_id: str):
-        """下载用户喜欢的作品"""
+        """Download user's liked works"""
         max_count = 0
         try:
             max_count = int(self.config.get('number', {}).get('like', 0))
@@ -878,7 +878,7 @@ class UnifiedDownloader:
         cursor = 0
         downloaded = 0
 
-        console.print(f"\n[green]开始下载用户喜欢的作品...[/green]")
+        console.print(f"\n[green]Starting download of user's liked works...[/green]")
 
         with Progress(
             SpinnerColumn(),
@@ -890,10 +890,10 @@ class UnifiedDownloader:
         ) as progress:
 
             while True:
-                # 限速
+                # Rate limit
                 await self.rate_limiter.acquire()
 
-                # 获取喜欢列表
+                # Get liked list
                 likes_data = await self._fetch_user_likes(user_id, cursor)
                 if not likes_data:
                     break
@@ -902,21 +902,21 @@ class UnifiedDownloader:
                 if not aweme_list:
                     break
 
-                # 下载作品
+                # Download works
                 for aweme in aweme_list:
                     if max_count > 0 and downloaded >= max_count:
-                        console.print(f"[yellow]已达到下载数量限制: {max_count}[/yellow]")
+                        console.print(f"[yellow]Reached download count limit: {max_count}[/yellow]")
                         return
 
                     if not self._check_time_filter(aweme):
                         continue
 
                     task_id = progress.add_task(
-                        f"下载喜欢 {downloaded + 1}",
+                        f"Downloading liked {downloaded + 1}",
                         total=100
                     )
 
-                    # 增量判断
+                    # Incremental check
                     if self._should_skip_increment('like', aweme, sec_uid=user_id):
                         continue
 
@@ -927,17 +927,17 @@ class UnifiedDownloader:
                         progress.update(task_id, completed=100)
                         self._record_increment('like', aweme, sec_uid=user_id)
                     else:
-                        progress.update(task_id, description="[red]下载失败[/red]")
+                        progress.update(task_id, description="[red]Download failed[/red]")
 
-                # 翻页
+                # Pagination
                 if not likes_data.get('has_more'):
                     break
                 cursor = likes_data.get('max_cursor', 0)
 
-        console.print(f"[green]✅ 喜欢作品下载完成，共下载 {downloaded} 个[/green]")
+        console.print(f"[green]✅ Liked works download complete, total downloaded: {downloaded}[/green]")
 
     async def _fetch_user_likes(self, user_id: str, cursor: int = 0) -> Optional[Dict]:
-        """获取用户喜欢的作品列表"""
+        """Fetch user's liked works list"""
         try:
             params_list = [
                 f'sec_user_id={user_id}',
@@ -966,37 +966,37 @@ class UnifiedDownloader:
                 xbogus = self.utils.getXbogus(params)
                 full_url = f"{api_url}{params}&X-Bogus={xbogus}"
             except Exception as e:
-                logger.warning(f"获取X-Bogus失败: {e}, 尝试不带X-Bogus")
+                logger.warning(f"Failed to get X-Bogus: {e}, attempting without X-Bogus")
                 full_url = f"{api_url}{params}"
 
-            logger.info(f"请求用户喜欢列表: {full_url[:100]}...")
+            logger.info(f"Requesting user liked list: {full_url[:100]}...")
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(full_url, headers=self.headers, timeout=10) as response:
                     if response.status != 200:
-                        logger.error(f"请求失败，状态码: {response.status}")
+                        logger.error(f"Request failed, status code: {response.status}")
                         return None
 
                     text = await response.text()
                     if not text:
-                        logger.error("响应内容为空")
+                        logger.error("Response content is empty")
                         return None
 
                     data = json.loads(text)
                     if data.get('status_code') == 0:
                         return data
                     else:
-                        logger.error(f"API返回错误: {data.get('status_msg', '未知错误')}")
+                        logger.error(f"API returned error: {data.get('status_msg', 'Unknown error')}")
                         return None
         except Exception as e:
-            logger.error(f"获取用户喜欢列表失败: {e}")
+            logger.error(f"Failed to fetch user liked list: {e}")
         return None
 
     async def _download_user_mixes(self, user_id: str):
-        """下载用户的所有合集（按配置可限制数量）"""
+        """Download all user collections (limit count based on config)"""
         max_allmix = 0
         try:
-            # 兼容旧键名 allmix 或 mix
+            # Compatible with old key names allmix or mix
             number_cfg = self.config.get('number', {}) or {}
             max_allmix = int(number_cfg.get('allmix', number_cfg.get('mix', 0)) or 0)
         except Exception:
@@ -1005,7 +1005,7 @@ class UnifiedDownloader:
         cursor = 0
         fetched = 0
 
-        console.print(f"\n[green]开始获取用户合集列表...[/green]")
+        console.print(f"\n[green]Starting to fetch user collection list...[/green]")
         while True:
             await self.rate_limiter.acquire()
             mix_list_data = await self._fetch_user_mix_list(user_id, cursor)
@@ -1018,11 +1018,11 @@ class UnifiedDownloader:
 
             for mix in mix_infos:
                 if max_allmix > 0 and fetched >= max_allmix:
-                    console.print(f"[yellow]已达到合集数量限制: {max_allmix}[/yellow]")
+                    console.print(f"[yellow]Reached collection count limit: {max_allmix}[/yellow]")
                     return
                 mix_id = mix.get('mix_id')
                 mix_name = mix.get('mix_name', '')
-                console.print(f"[cyan]下载合集[/cyan]: {mix_name} ({mix_id})")
+                console.print(f"[cyan]Downloading collection[/cyan]: {mix_name} ({mix_id})")
                 await self._download_mix_by_id(mix_id)
                 fetched += 1
 
@@ -1030,10 +1030,10 @@ class UnifiedDownloader:
                 break
             cursor = mix_list_data.get('cursor', 0)
 
-        console.print(f"[green]✅ 用户合集下载完成，共处理 {fetched} 个[/green]")
+        console.print(f"[green]✅ User collections download complete, total processed: {fetched}[/green]")
 
     async def _fetch_user_mix_list(self, user_id: str, cursor: int = 0) -> Optional[Dict]:
-        """获取用户合集列表"""
+        """Fetch user collection list"""
         try:
             params_list = [
                 f'sec_user_id={user_id}',
@@ -1061,31 +1061,31 @@ class UnifiedDownloader:
                 xbogus = self.utils.getXbogus(params)
                 full_url = f"{api_url}{params}&X-Bogus={xbogus}"
             except Exception as e:
-                logger.warning(f"获取X-Bogus失败: {e}, 尝试不带X-Bogus")
+                logger.warning(f"Failed to get X-Bogus: {e}, attempting without X-Bogus")
                 full_url = f"{api_url}{params}"
 
-            logger.info(f"请求用户合集列表: {full_url[:100]}...")
+            logger.info(f"Requesting user collection list: {full_url[:100]}...")
             async with aiohttp.ClientSession() as session:
                 async with session.get(full_url, headers=self.headers, timeout=10) as response:
                     if response.status != 200:
-                        logger.error(f"请求失败，状态码: {response.status}")
+                        logger.error(f"Request failed, status code: {response.status}")
                         return None
                     text = await response.text()
                     if not text:
-                        logger.error("响应内容为空")
+                        logger.error("Response content is empty")
                         return None
                     data = json.loads(text)
                     if data.get('status_code') == 0:
                         return data
                     else:
-                        logger.error(f"API返回错误: {data.get('status_msg', '未知错误')}")
+                        logger.error(f"API returned error: {data.get('status_msg', 'Unknown error')}")
                         return None
         except Exception as e:
-            logger.error(f"获取用户合集列表失败: {e}")
+            logger.error(f"Failed to fetch user collection list: {e}")
         return None
 
     async def download_mix(self, url: str) -> bool:
-        """根据合集链接下载合集内所有作品"""
+        """Download all works in a collection based on collection link"""
         try:
             mix_id = None
             for pattern in [r'/collection/(\d+)', r'/mix/detail/(\d+)']:
@@ -1094,20 +1094,20 @@ class UnifiedDownloader:
                     mix_id = m.group(1)
                     break
             if not mix_id:
-                logger.error(f"无法从合集链接提取ID: {url}")
+                logger.error(f"Unable to extract ID from collection link: {url}")
                 return False
             await self._download_mix_by_id(mix_id)
             return True
         except Exception as e:
-            logger.error(f"下载合集失败: {e}")
+            logger.error(f"Failed to download collection: {e}")
             return False
 
     async def _download_mix_by_id(self, mix_id: str):
-        """按合集ID下载全部作品"""
+        """Download all works by collection ID"""
         cursor = 0
         downloaded = 0
 
-        console.print(f"\n[green]开始下载合集 {mix_id} ...[/green]")
+        console.print(f"\n[green]Starting download of collection {mix_id} ...[/green]")
 
         while True:
             await self.rate_limiter.acquire()
@@ -1128,10 +1128,10 @@ class UnifiedDownloader:
                 break
             cursor = data.get('cursor', 0)
 
-        console.print(f"[green]✅ 合集下载完成，共下载 {downloaded} 个[/green]")
+        console.print(f"[green]✅ Collection download complete, total downloaded: {downloaded}[/green]")
 
     async def _fetch_mix_awemes(self, mix_id: str, cursor: int = 0) -> Optional[Dict]:
-        """获取合集下作品列表"""
+        """Fetch work list under a collection"""
         try:
             params_list = [
                 f'mix_id={mix_id}',
@@ -1159,36 +1159,36 @@ class UnifiedDownloader:
                 xbogus = self.utils.getXbogus(params)
                 full_url = f"{api_url}{params}&X-Bogus={xbogus}"
             except Exception as e:
-                logger.warning(f"获取X-Bogus失败: {e}, 尝试不带X-Bogus")
+                logger.warning(f"Failed to get X-Bogus: {e}, attempting without X-Bogus")
                 full_url = f"{api_url}{params}"
 
-            logger.info(f"请求合集作品列表: {full_url[:100]}...")
+            logger.info(f"Requesting collection work list: {full_url[:100]}...")
             async with aiohttp.ClientSession() as session:
                 async with session.get(full_url, headers=self.headers, timeout=10) as response:
                     if response.status != 200:
-                        logger.error(f"请求失败，状态码: {response.status}")
+                        logger.error(f"Request failed, status code: {response.status}")
                         return None
                     text = await response.text()
                     if not text:
-                        logger.error("响应内容为空")
+                        logger.error("Response content is empty")
                         return None
                     data = json.loads(text)
-                    # USER_MIX 返回没有统一的 status_code，这里直接返回
+                    # USER_MIX returns without unified status_code, return directly here
                     return data
         except Exception as e:
-            logger.error(f"获取合集作品失败: {e}")
+            logger.error(f"Failed to fetch collection works: {e}")
         return None
 
     async def download_music(self, url: str) -> bool:
-        """根据音乐页链接下载音乐下的所有作品（支持增量）"""
+        """Download all works under a music page based on music link (supports incremental)"""
         try:
-            # 提取 music_id
+            # Extract music_id
             music_id = None
             m = re.search(r'/music/(\d+)', url)
             if m:
                 music_id = m.group(1)
             if not music_id:
-                logger.error(f"无法从音乐链接提取ID: {url}")
+                logger.error(f"Unable to extract ID from music link: {url}")
                 return False
 
             cursor = 0
@@ -1199,7 +1199,7 @@ class UnifiedDownloader:
             except Exception:
                 limit_num = 0
 
-            console.print(f"\n[green]开始下载音乐 {music_id} 下的作品...[/green]")
+            console.print(f"\n[green]Starting download of works under music {music_id} ...[/green]")
 
             while True:
                 await self.rate_limiter.acquire()
@@ -1212,7 +1212,7 @@ class UnifiedDownloader:
 
                 for aweme in aweme_list:
                     if limit_num > 0 and downloaded >= limit_num:
-                        console.print(f"[yellow]已达到音乐下载数量限制: {limit_num}[/yellow]")
+                        console.print(f"[yellow]Reached music download count limit: {limit_num}[/yellow]")
                         return True
                     if self._should_skip_increment('music', aweme, music_id=music_id):
                         continue
@@ -1225,14 +1225,14 @@ class UnifiedDownloader:
                     break
                 cursor = data.get('cursor', 0)
 
-            console.print(f"[green]✅ 音乐作品下载完成，共下载 {downloaded} 个[/green]")
+            console.print(f"[green]✅ Music works download complete, total downloaded: {downloaded}[/green]")
             return True
         except Exception as e:
-            logger.error(f"下载音乐页失败: {e}")
+            logger.error(f"Failed to download music page: {e}")
             return False
 
     async def _fetch_music_awemes(self, music_id: str, cursor: int = 0) -> Optional[Dict]:
-        """获取音乐下作品列表"""
+        """Fetch work list under a music"""
         try:
             params_list = [
                 f'music_id={music_id}',
@@ -1260,27 +1260,27 @@ class UnifiedDownloader:
                 xbogus = self.utils.getXbogus(params)
                 full_url = f"{api_url}{params}&X-Bogus={xbogus}"
             except Exception as e:
-                logger.warning(f"获取X-Bogus失败: {e}, 尝试不带X-Bogus")
+                logger.warning(f"Failed to get X-Bogus: {e}, attempting without X-Bogus")
                 full_url = f"{api_url}{params}"
 
-            logger.info(f"请求音乐作品列表: {full_url[:100]}...")
+            logger.info(f"Requesting music work list: {full_url[:100]}...")
             async with aiohttp.ClientSession() as session:
                 async with session.get(full_url, headers=self.headers, timeout=10) as response:
                     if response.status != 200:
-                        logger.error(f"请求失败，状态码: {response.status}")
+                        logger.error(f"Request failed, status code: {response.status}")
                         return None
                     text = await response.text()
                     if not text:
-                        logger.error("响应内容为空")
+                        logger.error("Response content is empty")
                         return None
                     data = json.loads(text)
                     return data
         except Exception as e:
-            logger.error(f"获取音乐作品失败: {e}")
+            logger.error(f"Failed to fetch music works: {e}")
         return None
     
     def _check_time_filter(self, aweme: Dict) -> bool:
-        """检查时间过滤"""
+        """Check time filter"""
         start_time = self.config.get('start_time')
         end_time = self.config.get('end_time')
         
@@ -1321,46 +1321,46 @@ class UnifiedDownloader:
         return True
     
     async def run(self):
-        """运行下载器"""
-        # 显示启动信息
+        """Run downloader"""
+        # Display startup info
         console.print(Panel.fit(
-            "[bold cyan]抖音下载器 v3.0 - 统一增强版[/bold cyan]\n"
-            "[dim]支持视频、图文、用户主页、合集批量下载[/dim]",
+            "[bold cyan]Douyin Downloader v3.0 - Unified Enhanced Version[/bold cyan]\n"
+            "[dim]Supports batch downloading of videos, images, user homepages, and collections[/dim]",
             border_style="cyan"
         ))
         
-        # 初始化Cookie与请求头
+        # Initialize Cookie and headers
         await self._initialize_cookies_and_headers()
         
-        # 获取URL列表
+        # Get URL list
         urls = self.config.get('link', [])
-        # 兼容：单条字符串
+        # Compatible: single string
         if isinstance(urls, str):
             urls = [urls]
         if not urls:
-            console.print("[red]没有找到要下载的链接！[/red]")
+            console.print("[red]No links found to download![/red]")
             return
         
-        # 分析URL类型
-        console.print(f"\n[cyan]📊 链接分析[/cyan]")
+        # Analyze URL types
+        console.print(f"\n[cyan]📊 Link Analysis[/cyan]")
         url_types = {}
         for url in urls:
             content_type = self.detect_content_type(url)
             url_types[url] = content_type
             console.print(f"  • {content_type.upper()}: {url[:50]}...")
         
-        # 开始下载
-        console.print(f"\n[green]⏳ 开始下载 {len(urls)} 个链接...[/green]\n")
+        # Start download
+        console.print(f"\n[green]⏳ Starting download of {len(urls)} links...[/green]\n")
         
         for i, url in enumerate(urls, 1):
             content_type = url_types[url]
-            console.print(f"[{i}/{len(urls)}] 处理: {url}")
+            console.print(f"[{i}/{len(urls)}] Processing: {url}")
             
             if content_type == ContentType.VIDEO or content_type == ContentType.IMAGE:
                 await self.download_single_video(url)
             elif content_type == ContentType.USER:
                 await self.download_user_page(url)
-                # 若配置包含 like 或 mix，顺带处理
+                # If config includes like or mix, process them as well
                 modes = self.config.get('mode', ['post'])
                 if 'like' in modes:
                     user_id = self.extract_id_from_url(url, ContentType.USER)
@@ -1375,81 +1375,81 @@ class UnifiedDownloader:
             elif content_type == ContentType.MUSIC:
                 await self.download_music(url)
             else:
-                console.print(f"[yellow]不支持的内容类型: {content_type}[/yellow]")
+                console.print(f"[yellow]Unsupported content type: {content_type}[/yellow]")
             
-            # 显示进度
-            console.print(f"进度: {i}/{len(urls)} | 成功: {self.stats.success} | 失败: {self.stats.failed}")
+            # Display progress
+            console.print(f"Progress: {i}/{len(urls)} | Success: {self.stats.success} | Failed: {self.stats.failed}")
             console.print("-" * 60)
         
-        # 显示统计
+        # Show statistics
         self._show_stats()
     
     def _show_stats(self):
-        """显示下载统计"""
+        """Show download statistics"""
         console.print("\n" + "=" * 60)
         
-        # 创建统计表格
-        table = Table(title="📊 下载统计", show_header=True, header_style="bold magenta")
-        table.add_column("项目", style="cyan", width=12)
-        table.add_column("数值", style="green")
+        # Create statistics table
+        table = Table(title="📊 Download Statistics", show_header=True, header_style="bold magenta")
+        table.add_column("Item", style="cyan", width=12)
+        table.add_column("Value", style="green")
         
         stats = self.stats.to_dict()
-        table.add_row("总任务数", str(stats['total']))
-        table.add_row("成功", str(stats['success']))
-        table.add_row("失败", str(stats['failed']))
-        table.add_row("跳过", str(stats['skipped']))
-        table.add_row("成功率", stats['success_rate'])
-        table.add_row("用时", stats['elapsed_time'])
+        table.add_row("Total Tasks", str(stats['total']))
+        table.add_row("Success", str(stats['success']))
+        table.add_row("Failed", str(stats['failed']))
+        table.add_row("Skipped", str(stats['skipped']))
+        table.add_row("Success Rate", stats['success_rate'])
+        table.add_row("Time Elapsed", stats['elapsed_time'])
         
         console.print(table)
-        console.print("\n[bold green]✅ 下载任务完成！[/bold green]")
+        console.print("\n[bold green]✅ Download tasks complete![/bold green]")
 
 
 def main():
-    """主函数"""
+    """Main function"""
     parser = argparse.ArgumentParser(
-        description='抖音下载器 - 统一增强版',
+        description='Douyin Downloader - Unified Enhanced Version',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     parser.add_argument(
         '-c', '--config',
         default='config.yml',
-        help='配置文件路径 (默认: config.yml，自动兼容 config_simple.yml)'
+        help='Config file path (default: config.yml, auto-compatible with config_simple.yml)'
     )
     
     parser.add_argument(
         '-u', '--url',
         nargs='+',
-        help='直接指定要下载的URL'
+        help='Directly specify URLs to download'
     )
     parser.add_argument(
         '-p', '--path',
         default=None,
-        help='保存路径 (覆盖配置文件)'
+        help='Save path (overrides config file)'
     )
     parser.add_argument(
         '--auto-cookie',
         action='store_true',
-        help='自动获取Cookie（需要已安装Playwright）'
+        help='Auto-fetch Cookie (requires Playwright installed)'
     )
     parser.add_argument(
         '--cookie',
-        help='手动指定Cookie字符串，例如 "msToken=xxx; ttwid=yyy"'
+        help='Manually specify Cookie string, e.g., "msToken=xxx; ttwid=yyy"'
     )
     
     args = parser.parse_args()
     
-    # 组合配置来源：优先命令行
+    # Combine config sources: priority CLI
     temp_config = {}
     if args.url:
         temp_config['link'] = args.url
     
-    # 覆盖保存路径
+    # Override save path
     if args.path:
         temp_config['path'] = args.path
     
-    # Cookie配置
+    # Cookie config
     if args.auto_cookie:
         temp_config['auto_cookie'] = True
         temp_config['cookies'] = 'auto'
@@ -1457,9 +1457,9 @@ def main():
         temp_config['cookies'] = args.cookie
         temp_config['auto_cookie'] = False
     
-    # 如果存在临时配置，则生成一个临时文件供现有构造函数使用
+    # If temporary config exists, generate a temporary file for existing constructor
     if temp_config:
-        # 合并文件配置（如存在）
+        # Merge file config (if exists)
         file_config = {}
         if os.path.exists(args.config):
             try:
@@ -1468,7 +1468,7 @@ def main():
             except Exception:
                 file_config = {}
         
-        # 兼容简化键名
+        # Compatible simplified key names
         if 'links' in file_config and 'link' not in file_config:
             file_config['link'] = file_config['links']
         if 'output_dir' in file_config and 'path' not in file_config:
@@ -1483,17 +1483,17 @@ def main():
     else:
         config_path = args.config
     
-    # 运行下载器
+    # Run downloader
     try:
         downloader = UnifiedDownloader(config_path)
         asyncio.run(downloader.run())
     except KeyboardInterrupt:
-        console.print("\n[yellow]⚠️ 用户中断下载[/yellow]")
+        console.print("\n[yellow]⚠️ User interrupted download[/yellow]")
     except Exception as e:
-        console.print(f"\n[red]❌ 程序异常: {e}[/red]")
-        logger.exception("程序异常")
+        console.print(f"\n[red]❌ Program exception: {e}[/red]")
+        logger.exception("Program exception")
     finally:
-        # 清理临时配置
+        # Clean up temporary config
         if args.url and os.path.exists('temp_config.yml'):
             os.remove('temp_config.yml')
 

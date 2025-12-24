@@ -8,7 +8,7 @@ import copy
 
 class Result(object):
     def __init__(self):
-        # 作者信息
+        # Author info
         self.authorDict = {
             "avatar_thumb": {
                 "height": "",
@@ -28,35 +28,35 @@ class Result(object):
                 "url_list": [],
                 "width": ""
             },
-            # 喜欢的作品数
+            # Number of liked works
             "favoriting_count": "",
-            # 粉丝数
+            # Number of followers
             "follower_count": "",
-            # 关注数
+            # Number of following
             "following_count": "",
-            # 昵称
+            # Nickname
             "nickname": "",
-            # 是否允许下载
+            # Whether download is allowed
             "prevent_download": "",
-            # 用户 url id
+            # User url id
             "sec_uid": "",
-            # 是否私密账号
+            # Whether private account
             "secret": "",
-            # 短id
+            # Short id
             "short_id": "",
-            # 签名
+            # Signature
             "signature": "",
-            # 总获赞数
+            # Total likes received
             "total_favorited": "",
-            # 用户id
+            # User id
             "uid": "",
-            # 用户自定义唯一id 抖音号
+            # User custom unique id (Douyin ID)
             "unique_id": "",
-            # 年龄
+            # Age
             "user_age": "",
 
         }
-        # 图片信息
+        # Image info
         self.picDict = {
             "height": "",
             "mask_url_list": "",
@@ -64,7 +64,7 @@ class Result(object):
             "url_list": [],
             "width": ""
         }
-        # 音乐信息
+        # Music info
         self.musicDict = {
             "cover_hd": {
                 "height": "",
@@ -90,11 +90,11 @@ class Result(object):
                 "url_list": [],
                 "width": ""
             },
-            # 音乐作者抖音号
+            # Music author Douyin ID
             "owner_handle": "",
-            # 音乐作者id
+            # Music author id
             "owner_id": "",
-            # 音乐作者昵称
+            # Music author nickname
             "owner_nickname": "",
             "play_url": {
                 "height": "",
@@ -103,10 +103,10 @@ class Result(object):
                 "url_list": [],
                 "width": ""
             },
-            # 音乐名字
+            # Music title
             "title": "",
         }
-        # 视频信息
+        # Video info
         self.videoDict = {
             "play_addr": {
                 "uri": "",
@@ -137,7 +137,7 @@ class Result(object):
                 "width": ""
             }
         }
-        # mix信息
+        # Mix info
         self.mixInfo = {
             "cover_url": {
                 "height": "",
@@ -156,27 +156,27 @@ class Result(object):
                 "updated_to_episode": ""
             }
         }
-        # 作品信息
+        # Work info
         self.awemeDict = {
-            # 作品创建时间
+            # Work creation time
             "create_time": "",
-            # awemeType=0 视频, awemeType=1 图集, awemeType=2 直播
+            # awemeType=0 Video, awemeType=1 Image set, awemeType=2 Live
             "awemeType": "",
-            # 作品 id
+            # Work id
             "aweme_id": "",
-            # 作者信息
+            # Author info
             "author": self.authorDict,
-            # 作品描述
+            # Work description
             "desc": "",
-            # 图片
+            # Images
             "images": [],
-            # 音乐
+            # Music
             "music": self.musicDict,
-            # 合集
+            # Collection
             "mix_info": self.mixInfo,
-            # 视频
+            # Video
             "video": self.videoDict,
-            # 作品信息统计
+            # Work statistics
             "statistics": {
                 "admire_count": "",
                 "collect_count": "",
@@ -186,68 +186,68 @@ class Result(object):
                 "share_count": ""
             }
         }
-        # 用户作品信息
+        # User work list
         self.awemeList = []
-        # 直播信息
+        # Live info
         self.liveDict = {
-            # awemeType=0 视频, awemeType=1 图集, awemeType=2 直播
+            # awemeType=0 Video, awemeType=1 Image set, awemeType=2 Live
             "awemeType": "",
-            # 是否在播
+            # Whether live
             "status": "",
-            # 直播标题
+            # Live title
             "title": "",
-            # 直播cover
+            # Live cover
             "cover": "",
-            # 头像
+            # Avatar
             "avatar": "",
-            # 观看人数
+            # Viewer count
             "user_count": "",
-            # 昵称
+            # Nickname
             "nickname": "",
             # sec_uid
             "sec_uid": "",
-            # 直播间观看状态
+            # Live room viewing status
             "display_long": "",
-            # 推流
+            # Pull stream
             "flv_pull_url": "",
-            # 分区
+            # Partition
             "partition": "",
             "sub_partition": "",
-            # 最清晰的地址
+            # Clearest address
             "flv_pull_url0": "",
         }
 
 
 
-    # 将得到的json数据（dataRaw）精简成自己定义的数据（dataNew）
-    # 转换得到的数据
+    # Simplify raw JSON data (dataRaw) into defined data structure (dataNew)
+    # Converted data
     def dataConvert(self, awemeType, dataNew, dataRaw):
         for item in dataNew:
             try:
-                # 作品创建时间
+                # Work creation time
                 if item == "create_time":
                     dataNew['create_time'] = time.strftime(
                         "%Y-%m-%d %H.%M.%S", time.localtime(dataRaw['create_time']))
                     continue
-                # 设置 awemeType
+                # Set awemeType
                 if item == "awemeType":
                     dataNew["awemeType"] = awemeType
                     continue
-                # 当 解析的链接 是图片时
+                # When parsed link is image
                 if item == "images":
                     if awemeType == 1:
                         for image in dataRaw[item]:
                             for i in image:
                                 self.picDict[i] = image[i]
-                            # 字典要深拷贝
+                            # Deep copy dictionary
                             self.awemeDict["images"].append(copy.deepcopy(self.picDict))
                     continue
-                # 当 解析的链接 是视频时
+                # When parsed link is video
                 if item == "video":
                     if awemeType == 0:
                         self.dataConvert(awemeType, dataNew[item], dataRaw[item])
                     continue
-                # 将小头像放大
+                # Enlarge small avatar
                 if item == "avatar":
                     for i in dataNew[item]:
                         if i == "url_list":
@@ -260,34 +260,34 @@ class Result(object):
                             dataNew[item][i] = self.awemeDict["author"]["avatar_thumb"][i]
                     continue
 
-                # 原来的json是[{}] 而我们的是 {}
+                # Original JSON is [{}] while ours is {}
                 if item == "cover_url":
                     self.dataConvert(awemeType, dataNew[item], dataRaw[item][0])
                     continue
 
-                # 根据 uri 获取 1080p 视频
+                # Get 1080p video based on uri
                 if item == "play_addr":
                     dataNew[item]["uri"] = dataRaw["bit_rate"][0]["play_addr"]["uri"]
-                    # 使用 这个api 可以获得1080p
+                    # Use this API to get 1080p
                     # dataNew[item]["url_list"] = "https://aweme.snssdk.com/aweme/v1/play/?video_id=%s&ratio=1080p&line=0" \
                     #                             % dataNew[item]["uri"]
                     dataNew[item]["url_list"] = copy.deepcopy(dataRaw["bit_rate"][0]["play_addr"]["url_list"])
                     continue
 
-                # 常规 递归遍历 字典
+                # Regular recursive traversal of dictionary
                 if isinstance(dataNew[item], dict):
                     self.dataConvert(awemeType, dataNew[item], dataRaw[item])
                 else:
-                    # 赋值
+                    # Assignment
                     dataNew[item] = dataRaw[item]
             except Exception as e:
-                # 删除这个警告, 总是让人误会出错了
-                # print("[  警告  ]:转换数据时在接口中未找到 %s\r" % (item))
+                # Remove this warning, it's often misleading
+                # print("[  Warning  ]: %s not found in interface during data conversion\r" % (item))
                 pass
 
     def clearDict(self, data):
         for item in data:
-            # 常规 递归遍历 字典
+            # Regular recursive traversal of dictionary
             if isinstance(data[item], dict):
                 self.clearDict(data[item])
             elif isinstance(data[item], list):

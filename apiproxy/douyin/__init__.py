@@ -16,5 +16,5 @@ douyin_headers = {
     'sec-fetch-dest': 'empty',
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-origin'
-    # Cookie字段将在运行时动态设置
+    # Cookie field will be set dynamically at runtime
 }

@@ -1,0 +1,183 @@
+#######################################
+# Notes:
+# 1. Hash (#) indicates comments
+# 2. Indentation must be strictly aligned, use spaces only.
+#    Note: some colons have a space after them, some do not.
+# 3. Please use English characters only
+# 4. For more YAML syntax, please search online
+#######################################
+
+
+# Share links for works (videos or image albums), livestreams, collections,
+# music collections, personal homepage links, or desktop browser URLs
+# (Remove extra text, ensure only the URL remains,
+#  e.g. https://v.douyin.com/kcvMpuN/ or starting with https://www.douyin.com/)
+# Multiple links can be set, ensure at least one link exists
+# Required
+link:
+  # Test user homepage download (known to work)
+  # - https://v.douyin.com/V9ceiKjn5Cc/
+  # - https://www.douyin.com/user/MS4wLjABAAAAis_JnxgBlvvYLcDZvsu8MjLRkVpsjunZo2XthCZs4OPTl1S7nATx535qCyz1Aq_A
+
+  # Example of copied text with URL (must remove text, keep only URL)
+  # - "6.12 z@t.Rx RKW:/ 09/10 ... https://v.douyin.com/V9ceiKjn5Cc/ Copy this link..."
+
+
+  - "https://v.douyin.com/0naa_ETV4gk/"
+  - "https://v.douyin.com/H1LnwQTwILA/"
+  # Test single video download
+  # - https://v.douyin.com/iRGu2mBL/
+  # - https://v.douyin.com/kVefc81/
+  # - https://v.douyin.com/kVdkdxY/
+  # - https://v.douyin.com/kVdMcrr/
+  # - https://v.douyin.com/iRGukBBk/
+  # - https://v.douyin.com/iRGuJcW8/
+  # - https://v.douyin.com/iRGHQY5t/
+
+
+# Download save path, default is current file location
+# Required
+path: ./Downloaded/
+
+
+# Whether to download the music from videos (True/False), default is True
+# Optional
+music: False  # 🎵 Tắt download nhạc
+
+
+# Whether to download the video cover (True/False), default is True
+# Effective only when downloading videos
+# Optional
+cover: False  # 🖼️ Tắt download ảnh bìa
+
+
+# Whether to download the author's avatar (True/False), default is True
+# Optional
+avatar: False  # 👤 Tắt download avatar
+
+
+# Whether to save retrieved metadata (True/False), default is True
+# Optional
+json: False  # 📄 Tắt lưu JSON
+
+
+# Download time range (leave empty for no time limit)
+start_time: ""
+end_time: ""
+
+
+# Folder structure style
+# True  -> each video has its own folder
+# False -> all videos share the same folder
+folderstyle: True
+
+# True structure example:
+# user_xxx_xxx
+#   - like/post/mix
+#       - 2022-11-28 13.09.56_xxx
+#         - 2022-11-28 13.09.56_xxx.mp4
+#       - 2022-11-29 12.09.56_xxx
+#         - 2022-11-29 12.09.56_xxx.mp4
+
+# False structure example:
+# user_xxx_xxx
+#   - like/post/mix
+#       - 2022-11-28 13.09.56_xxx.mp4
+#       - 2022-11-29 12.09.56_xxx.mp4
+
+
+# When link is a user homepage, choose to download:
+# published works (post), liked works (like), or all collections (mix)
+# Default is post
+# Multiple modes can be set
+# Optional
+mode:
+  - post
+
+
+# Download quantity settings
+# Optional
+number:
+  post: 0     # Number of published videos to download (0 = download all)
+  like: 3     # Number of liked videos to download (0 = download all)
+  allmix: 1   # Number of collections to download (0 = download all)
+  mix: 3      # Number of videos per collection (0 = download all)
+  music: 3    # Number of videos under a music/original sound (0 = download all)
+
+
+# Whether to use database
+# If database is disabled, incremental update will not work
+database: True
+
+
+# Incremental download:
+# Downloads videos between the latest video on Douyin and the latest local video.
+# If no local videos exist for this link, all videos will be downloaded.
+# Can be used together with number option.
+#
+# Case 1:
+# number = 5, increase = True
+# If creator uploads 3 new videos not downloaded locally,
+# program fetches 5 entries and downloads 3.
+#
+# Case 2:
+# number = 5, increase = True
+# If creator uploads 6 new videos not downloaded locally,
+# program fetches and downloads all 6.
+#
+# Case 3:
+# number = 5, increase = True
+# If no local videos exist, all videos are downloaded.
+#
+# Case 4:
+# When fetching all mixes (mode = mix),
+# number(allmix) controls how many collections to download,
+# increase(allmix) applies incremental update for each collection.
+#
+# Optional
+increase:
+  post: False     # Enable incremental download for published videos
+  like: False     # Enable incremental download for liked videos
+  allmix: False   # Enable incremental download for all collections
+  mix: False      # Enable incremental download for single collection
+  music: False    # Enable incremental download for music/original sound
+
+
+# Number of download threads, default is 5
+# Optional
+thread: 5
+
+
+# Cookies: get them from Douyin web after logging in (via F12 developer tools)
+# Choose either cookies or cookie (single string)
+# To use this format, comment out the cookie option below
+#
+# Currently required cookies:
+# msToken, ttwid, odin_tt, passport_csrf_token, sid_guard
+#
+# You can dynamically add more cookies if needed;
+# the program searches by key name and does not hard-code them.
+cookies:
+  # msToken: xxx
+  # ttwid: xxx
+  # odin_tt: xxx
+  # passport_csrf_token: xxx
+  # sid_guard: xxx
+
+  msToken: ff36k8cz5g6YrVo0Yu4EQ0ENpjZCexlDiBWxFmm0wzmDDOiMWnjLBDmB-dfErTF3EGmTwpzl9ew9r3CM3Zg-JeF7zEbViS_wPJxFwC6N7poZLOA58TNeRgV0FU2d51mwb3FcQ04YBAxn1Jc3RjqZLNxi_innTRDbyrGRgQTyQ4RdhYCKxjHvGQ==
+  ttwid: 1%7CwZgTjjW1yLsPnNLC71VI-AcgQq5O6s4k1_HU9pRkXyw%7C1766634022%7Cea1b2ad981e1e4e65143f41d435fec172882654b5e3d98a5cb50ab9af13593f5
+  odin_tt: f6348271e313617cff4628e36eb824e1e82632a7fa7fbf1e83bc32b6edc53e3ab2a6ae08ebc5c08dfe103380e546a9148e93a461ac405c3071c4873eaf05fd11
+  passport_csrf_token: 3bcac9d0dcc79a3ad42ad5cb6c17403e
+  sid_guard: 57319c150ea7e2138baa5c814a92f00e%7C1766570000%7C5183999%7CSun%2C+22-Feb-2026+09%3A53%3A19+GMT
+
+
+# Cookies (single string format)
+# Choose either cookies or cookie
+# If this is set, the cookies option above becomes invalid (higher priority)
+#
+# Format:
+# "name1=value1; name2=value2;"
+#
+# The string may include (but is not limited to) the following cookies.
+# Add more if Douyin requires them.
+# cookie: "name=value; name=value; ..."

@@ -462,7 +462,14 @@ class UnifiedDownloader:
             self.stats.total += 1
     
     async def _fetch_video_info(self, video_id: str) -> Optional[Dict]:
-        """Fetch video info"""
+        """Fetch video info - Using Playwright for bot bypass"""
+        
+        # Try Playwright method first (most reliable for bypassing bot detection)
+        playwright_result = await self._fetch_video_info_playwright(video_id)
+        if playwright_result:
+            return playwright_result
+        
+        # Fallback to API methods
         try:
             # Use Douyin class from douyin.py
             from apiproxy.douyin.douyin import Douyin
@@ -500,49 +507,396 @@ class UnifiedDownloader:
             fallback_url = f"https://www.iesdouyin.com/web/api/v2/aweme/iteminfo/?item_ids={video_id}"
             logger.info(f"Attempting fallback interface to fetch video info: {fallback_url}")
             
-            # Set more general headers
+            # Set more complete headers to mimic real browser
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.douyin.com/',
+                'Referer': f'https://www.douyin.com/video/{video_id}',
                 'Accept': 'application/json, text/plain, */*',
                 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
                 'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive'
+                'Connection': 'keep-alive',
+                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin'
             }
+            
+            # Add cookies to fallback request
+            cookie_str = self._build_cookie_string()
+            if cookie_str:
+                headers['Cookie'] = cookie_str
             
             async with aiohttp.ClientSession() as session:
                 async with session.get(fallback_url, headers=headers, timeout=15) as response:
                     logger.info(f"Fallback interface response status: {response.status}")
                     if response.status != 200:
                         logger.error(f"Fallback interface request failed, status code: {response.status}")
-                        return None
-                    
-                    text = await response.text()
-                    logger.info(f"Fallback interface response content length: {len(text)}")
-                    
-                    if not text:
-                        logger.error("Fallback interface response is empty")
-                        return None
-                    
-                    try:
-                        data = json.loads(text)
-                        logger.info(f"Fallback interface returned data: {data}")
+                    else:
+                        text = await response.text()
+                        logger.info(f"Fallback interface response content length: {len(text)}")
                         
-                        item_list = (data or {}).get('item_list') or []
-                        if item_list:
-                            aweme_detail = item_list[0]
-                            logger.info("Fallback interface successfully fetched video info")
-                            return aweme_detail
-                        else:
-                            logger.error("Fallback interface returned data without item_list")
-                            
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Fallback interface JSON parsing failed: {e}")
-                        logger.error(f"Original response content: {text}")
-                        return None
+                        if text:
+                            try:
+                                data = json.loads(text)
+                                logger.info(f"Fallback interface returned data keys: {list(data.keys()) if data else 'empty'}")
+                                
+                                item_list = (data or {}).get('item_list') or []
+                                if item_list:
+                                    aweme_detail = item_list[0]
+                                    logger.info("Fallback interface successfully fetched video info")
+                                    return aweme_detail
+                                    
+                            except json.JSONDecodeError as e:
+                                logger.error(f"Fallback interface JSON parsing failed: {e}")
                         
         except Exception as e:
             logger.error(f"Fallback interface failed to fetch video info: {e}")
+        
+        # Try alternative web share API (more stable for single videos)
+        try:
+            share_api_url = f"https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={video_id}&aid=6383&device_platform=webapp"
+            logger.info(f"Attempting web share API: {share_api_url[:100]}...")
+            
+            headers_share = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': f'https://www.douyin.com/video/{video_id}',
+                'Accept': 'application/json',
+            }
+            
+            cookie_str = self._build_cookie_string()
+            if cookie_str:
+                headers_share['Cookie'] = cookie_str
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(share_api_url, headers=headers_share, timeout=15) as response:
+                    if response.status == 200:
+                        text = await response.text()
+                        if text:
+                            try:
+                                data = json.loads(text)
+                                aweme_detail = data.get('aweme_detail')
+                                if aweme_detail:
+                                    logger.info("Web share API successfully fetched video info")
+                                    return aweme_detail
+                            except json.JSONDecodeError:
+                                pass
+                                
+        except Exception as e:
+            logger.error(f"Web share API failed: {e}")
+        
+        # Try mobile API endpoint (often less protected)
+        try:
+            # Use mobile endpoint which requires less strict cookie validation
+            mobile_api_url = f"https://m.douyin.com/web/api/v2/aweme/iteminfo/?item_ids={video_id}"
+            logger.info(f"Attempting mobile API: {mobile_api_url}")
+            
+            headers_mobile = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.32',
+                'Referer': 'https://m.douyin.com/',
+                'Accept': 'application/json',
+            }
+            
+            cookie_str = self._build_cookie_string()
+            if cookie_str:
+                headers_mobile['Cookie'] = cookie_str
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(mobile_api_url, headers=headers_mobile, timeout=15) as response:
+                    if response.status == 200:
+                        text = await response.text()
+                        if text:
+                            try:
+                                data = json.loads(text)
+                                item_list = data.get('item_list') or []
+                                if item_list and len(item_list) > 0:
+                                    logger.info("Mobile API successfully fetched video info")
+                                    return item_list[0]
+                            except json.JSONDecodeError:
+                                pass
+                                
+        except Exception as e:
+            logger.error(f"Mobile API failed: {e}")
+        
+        # Final ultimate fallback: yt-dlp
+        logger.info("🚨 All methods failed, trying yt-dlp as last resort...")
+        ytdlp_result = await self._fetch_video_info_ytdlp(video_id)
+        if ytdlp_result:
+            return ytdlp_result
+        
+        return None
+    
+    async def _fetch_video_info_playwright(self, video_id: str) -> Optional[Dict]:
+        """Fetch video info using Playwright to bypass bot detection"""
+        try:
+            from playwright.async_api import async_playwright
+            
+            logger.info(f"🎭 Using Playwright to fetch video {video_id}...")
+            
+            video_url = f"https://www.douyin.com/video/{video_id}"
+            
+            async with async_playwright() as p:
+                # Launch browser with stealth mode
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--disable-blink-features=AutomationControlled',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-web-security',
+                        '--disable-features=IsolateOrigins,site-per-process'
+                    ]
+                )
+                
+                # Create context with realistic settings
+                context = await browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale='zh-CN',
+                    timezone_id='Asia/Shanghai',
+                    permissions=['geolocation'],
+                    geolocation={'latitude': 31.2304, 'longitude': 121.4737},  # Shanghai
+                )
+                
+                # Add stealth scripts
+                await context.add_init_script("""
+                    // Overwrite the `navigator.webdriver` property
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined,
+                    });
+                    
+                    // Mock plugins
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5],
+                    });
+                    
+                    // Mock languages
+                    Object.defineProperty(navigator, 'languages', {
+                        get: () => ['zh-CN', 'zh', 'en'],
+                    });
+                """)
+                
+                # Set cookies if available
+                if hasattr(self, 'cookies') and self.cookies:
+                    if isinstance(self.cookies, list):
+                        await context.add_cookies(self.cookies)
+                    elif isinstance(self.cookies, dict):
+                        cookies_list = [
+                            {'name': k, 'value': v, 'domain': '.douyin.com', 'path': '/'}
+                            for k, v in self.cookies.items()
+                        ]
+                        await context.add_cookies(cookies_list)
+                
+                page = await context.new_page()
+                
+                # Intercept API responses
+                video_data = {}
+                video_data_found = asyncio.Event()
+                
+                async def handle_response(response):
+                    """Capture video detail API responses"""
+                    try:
+                        url = response.url
+                        # More precise filtering for video detail APIs
+                        if (('aweme/detail' in url or 'aweme/v1/web/aweme/detail' in url) 
+                            and response.status == 200):
+                            try:
+                                data = await response.json()
+                                if data and isinstance(data, dict):
+                                    logger.info(f"✅ Intercepted video detail API: {url[:80]}...")
+                                    # Extract aweme_detail
+                                    if 'aweme_detail' in data:
+                                        video_data['aweme'] = data['aweme_detail']
+                                        video_data_found.set()
+                                        logger.info("🎉 Successfully captured video detail from API")
+                            except Exception as e:
+                                logger.debug(f"Failed to parse response: {e}")
+                    except Exception:
+                        pass
+                
+                page.on('response', handle_response)
+                
+                # Navigate to video page (don't wait for networkidle, too slow)
+                try:
+                    logger.info(f"📡 Navigating to {video_url}")
+                    await page.goto(video_url, wait_until='domcontentloaded', timeout=15000)
+                    
+                    # Wait a bit for API calls to complete
+                    logger.info("⏳ Waiting for video detail API...")
+                    try:
+                        await asyncio.wait_for(video_data_found.wait(), timeout=10)
+                    except asyncio.TimeoutError:
+                        logger.warning("⚠️ Timeout waiting for API, trying page extraction...")
+                    
+                    # Small delay for any remaining requests
+                    await asyncio.sleep(1)
+                    
+                    # If we captured data from network, use it
+                    if video_data.get('aweme'):
+                        logger.info("✅ Successfully captured video data from network requests")
+                        await browser.close()
+                        return video_data['aweme']
+                    
+                    # Otherwise, try to extract from page content
+                    logger.info("🔍 Attempting to extract data from page content...")
+                    
+                    # Scroll to trigger lazy loading
+                    await page.evaluate("window.scrollBy(0, 500)")
+                    await asyncio.sleep(0.5)
+                    
+                    # Method 1: Try all possible window variables
+                    page_data = await page.evaluate("""
+                        () => {
+                            // Try multiple sources
+                            const sources = [
+                                window.__RENDER_DATA__,
+                                window.RENDER_DATA,
+                                window.__INITIAL_STATE__,
+                                window.__INIT_PROPS__,
+                            ];
+                            
+                            for (const source of sources) {
+                                if (source) return { type: 'window', data: source };
+                            }
+                            
+                            // Try RENDER_DATA script tag
+                            const script = document.getElementById('RENDER_DATA');
+                            if (script && script.textContent) {
+                                return { type: 'script', data: script.textContent };
+                            }
+                            
+                            return null;
+                        }
+                    """)
+                    
+                    if page_data:
+                        try:
+                            if page_data['type'] == 'script':
+                                # URL decode and parse
+                                import urllib.parse
+                                decoded = urllib.parse.unquote(page_data['data'])
+                                data = json.loads(decoded)
+                            else:
+                                data = page_data['data']
+                            
+                            logger.info(f"📦 Got page data, type: {page_data['type']}")
+                            
+                            # Navigate complex nested structure to find aweme_detail
+                            def find_aweme_detail(obj, depth=0):
+                                """Recursively search for aweme detail in nested dict"""
+                                if depth > 5 or not isinstance(obj, dict):
+                                    return None
+                                
+                                # Direct keys
+                                if 'aweme_detail' in obj:
+                                    return obj['aweme_detail']
+                                if 'aweme' in obj and isinstance(obj['aweme'], dict):
+                                    if 'aweme_id' in obj['aweme']:
+                                        return obj['aweme']
+                                
+                                # Search recursively
+                                for key, value in obj.items():
+                                    if isinstance(value, dict):
+                                        result = find_aweme_detail(value, depth + 1)
+                                        if result:
+                                            return result
+                                
+                                return None
+                            
+                            aweme = find_aweme_detail(data)
+                            if aweme and 'aweme_id' in aweme:
+                                logger.info("✅ Successfully extracted video data from page content")
+                                await browser.close()
+                                return aweme
+                            else:
+                                logger.warning("⚠️ Found data but no valid aweme_detail")
+                        
+                        except Exception as e:
+                            logger.error(f"Failed to parse page data: {e}")
+                    
+                    logger.warning("⚠️ Could not extract video data from page")
+                    
+                except Exception as e:
+                    logger.error(f"Error during page navigation: {e}")
+                
+                await browser.close()
+                
+        except ImportError:
+            logger.warning("⚠️ Playwright not installed. Install with: pip install playwright && playwright install chromium")
+        except Exception as e:
+            logger.error(f"Playwright method failed: {e}")
+        
+        return None
+    
+    async def _fetch_video_info_ytdlp(self, video_id: str) -> Optional[Dict]:
+        """Ultimate fallback: Use yt-dlp to extract video info"""
+        try:
+            import subprocess
+            
+            logger.info(f"🔄 Attempting yt-dlp fallback for video {video_id}...")
+            
+            video_url = f"https://www.douyin.com/video/{video_id}"
+            
+            # Try yt-dlp command
+            cmd = [
+                'yt-dlp',
+                '--dump-json',
+                '--no-download',
+                video_url
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0 and result.stdout:
+                try:
+                    data = json.loads(result.stdout)
+                    logger.info("✅ yt-dlp successfully extracted video info")
+                    
+                    # Convert yt-dlp format to douyin format
+                    aweme_detail = {
+                        'aweme_id': video_id,
+                        'desc': data.get('description', ''),
+                        'create_time': data.get('timestamp', 0),
+                        'author': {
+                            'nickname': data.get('uploader', 'unknown'),
+                            'sec_uid': data.get('uploader_id', '')
+                        },
+                        'video': {
+                            'play_addr': {
+                                'url_list': [data.get('url', '')]
+                            },
+                            'cover': {
+                                'url_list': [data.get('thumbnail', '')]
+                            }
+                        },
+                        'music': {
+                            'play_url': {
+                                'url_list': []
+                            }
+                        }
+                    }
+                    
+                    return aweme_detail
+                    
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse yt-dlp output")
+            else:
+                logger.warning(f"yt-dlp failed: {result.stderr[:200]}")
+                
+        except FileNotFoundError:
+            logger.info("ℹ️ yt-dlp not installed. Install with: pip install yt-dlp")
+        except subprocess.TimeoutExpired:
+            logger.error("yt-dlp timeout")
+        except Exception as e:
+            logger.error(f"yt-dlp fallback failed: {e}")
         
         return None
     
